@@ -18,7 +18,8 @@ class AddOperation(
     override val operation: OperationType = OperationType.ADD
 
     override fun transform(operations: List<Operation>): List<Operation> {
-        return operations.flatMap {
+        val shiftedOperations = shiftIndices(operations)
+        return shiftedOperations.flatMap {
             if (it is AddOperation && it.path == path) {
                 if (it.value == value) {
                     emptyList()

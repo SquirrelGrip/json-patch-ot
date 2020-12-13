@@ -186,6 +186,13 @@ class Delta(
     val operations: List<Operation>
 ) {
     fun transform(document: Document): Delta {
+        val fillerOperations = operations.map {
+            it.path.path
+        }.filter {
+            document.source.at(it).isMissingNode
+        }.distinct().flatMap {
+            pathsUpTo(it)
+        }
         val appliedOperations = document.appliedDeltas.flatMap {
             it.operations
         }
@@ -196,10 +203,7 @@ class Delta(
                 it.transform(operations)
             }
         }
-        candidateOperations.filter {
-            document.source.at(it.path.path).isMissingNode
-        }
-        return Delta(document.version, candidateOperations)
+        return Delta(document.version, listOf(fillerOperations, candidateOperations).flatten())
     }
 
     fun toJsonNode(): JsonNode {

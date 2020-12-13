@@ -83,9 +83,9 @@ class OperationTest {
 
     @Test
     fun `build paths using AddOperation`() {
-        assertThat(pathsUpTo("/a")).isEmpty()
-        assertThat(pathsUpTo("/a/0")).containsExactly(AddOperation("/a", "[]".toJsonNode()))
-        assertThat(pathsUpTo("/a/0/a/0")).containsExactly(
+        assertThat(pathsUpTo(JsonPath("/a"))).isEmpty()
+        assertThat(pathsUpTo(JsonPath("/a/0"))).containsExactly(AddOperation("/a", "[]".toJsonNode()))
+        assertThat(pathsUpTo(JsonPath("/a/0/a/0"))).containsExactly(
             AddOperation("/a", "[]".toJsonNode()),
             AddOperation("/a/0", "{}".toJsonNode()),
             AddOperation("/a/0/a", "[]".toJsonNode())
@@ -118,10 +118,10 @@ class OperationTest {
         val appliedDocumentBA = appliedDocumentB.transform(deltaA)
 
         println("Outputs")
-        println("appliedDocumentA = $appliedDocumentA")
-        println("appliedDocumentB = $appliedDocumentB")
-        println("appliedDocumentAB = $appliedDocumentAB")
-        println("appliedDocumentBA = $appliedDocumentBA")
+        println("appliedDocumentA = $appliedDocumentA => ${appliedDocumentA.appliedDeltas}")
+        println("appliedDocumentB = $appliedDocumentB => ${appliedDocumentB.appliedDeltas}")
+        println("appliedDocumentAB = $appliedDocumentAB => ${appliedDocumentAB.appliedDeltas}")
+        println("appliedDocumentBA = $appliedDocumentBA => ${appliedDocumentBA.appliedDeltas}")
 
         var orderDoesNotMatter = false
         if (documentA.toString() == documentB.toString()) {
@@ -130,11 +130,11 @@ class OperationTest {
             assertThat(appliedDocumentAB.source.toString()).isEqualTo(appliedDocumentBA.source.toString())
             orderDoesNotMatter = true
         }
-        if (!deltaA.operations.filter { it is RemoveOperation }.isEmpty()) {
+        if (!appliedDocumentAB.source.isEmpty && !deltaA.operations.filter { it is RemoveOperation }.isEmpty()) {
             assertThat(appliedDocumentAB.source["a"]).isEqualTo(documentB["a"])
             assertThat(appliedDocumentBA.source.isEmpty || appliedDocumentBA.source["a"].isArray).isTrue()
         }
-        if (!deltaB.operations.filter { it is RemoveOperation }.isEmpty()) {
+        if (!appliedDocumentBA.source.isEmpty && !deltaB.operations.filter { it is RemoveOperation }.isEmpty()) {
             assertThat(appliedDocumentBA.source["a"]).isEqualTo(documentA["a"])
             assertThat(appliedDocumentAB.source.isEmpty || appliedDocumentAB.source["a"].isArray).isTrue()
         }
@@ -186,23 +186,27 @@ class Delta(
     val operations: List<Operation>
 ) {
     fun transform(document: Document): Delta {
-        val fillerOperations = operations.map {
-            it.path.path
-        }.filter {
-            document.source.at(it).isMissingNode
-        }.distinct().flatMap {
-            pathsUpTo(it)
-        }
         val appliedOperations = document.appliedDeltas.flatMap {
             it.operations
         }
         val candidateOperations = if (appliedOperations.isEmpty()) {
             operations
         } else {
-            appliedOperations.flatMap {
-                it.transform(operations)
+            var proposedOperation = operations
+            appliedOperations.forEach {
+                proposedOperation = it.transform(proposedOperation)
             }
+            proposedOperation
         }
+
+        val fillerOperations = candidateOperations.map {
+            it.path
+        }.filter {
+            it.parent != null && document.source.at(it.parent!!.path).isMissingNode
+        }.distinct().flatMap {
+            pathsUpTo(it)
+        }
+
         return Delta(document.version, listOf(fillerOperations, candidateOperations).flatten())
     }
 

@@ -135,6 +135,8 @@ class JsonPath(
         get() = if (isArrayElement) path.substring(0, lastSlashIndex + 1) else ""
     val isArrayElement: Boolean
         get() = name.isNumber()
+    val parent: JsonPath?
+        get() = if (lastSlashIndex >= 0 -1) JsonPath(path.substring(0, lastSlashIndex)) else null
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -171,19 +173,18 @@ class JsonPath(
     }
 }
 
-fun pathsUpTo(path: String): List<Operation> {
-    val split = path.substring(1).split('/')
+fun pathsUpTo(path: JsonPath): List<Operation> {
     val operations = mutableListOf<Operation>()
-    var s = ""
-    split.forEach {
-        if (s != "") {
-            if (it.isNumber()) {
+    var s: JsonPath = path.names.first()
+    path.names.forEach {
+        if (s != it) {
+            if (it.isArrayElement) {
                 operations.add(AddOperation(s, "[]".toJsonNode()))
             } else {
                 operations.add(AddOperation(s, "{}".toJsonNode()))
             }
         }
-        s = "$s/$it"
+        s = it
     }
     return operations.toList()
 }

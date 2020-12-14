@@ -17,6 +17,9 @@ class Document(
 
     fun transform(delta: Delta): Document {
         val transformedDelta: Delta = delta.transform(this)
+        println()
+        println(transformedDelta)
+        println()
         val transformedSource = JsonPatch.apply(transformedDelta.toJsonNode(), source)
         return Document(
             transformedSource,

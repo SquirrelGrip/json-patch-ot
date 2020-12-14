@@ -18,18 +18,23 @@ class AddOperation(
     override val operation: OperationType = OperationType.ADD
 
     override fun transform(operations: List<Operation>): List<Operation> {
-        val shiftedOperations = shiftIndices(operations)
-        return shiftedOperations.flatMap {
+         val candidateOperations = operations.flatMap {
             if (it is AddOperation && it.path == path) {
                 if (it.value == value) {
                     emptyList()
                 } else {
-                    listOf(ReplaceOperation(it.path, it.value))
+                    if (it.path.isArrayElement) {
+                        listOf(it)
+                    } else {
+                        listOf(ReplaceOperation(it.path, it.value))
+                    }
                 }
             } else {
                 listOf(it)
             }
         }
+        return candidateOperations;
+//        return shiftIndices(candidateOperations, true)
     }
 
     override fun updatePath(updatedPath: JsonPath): Operation {

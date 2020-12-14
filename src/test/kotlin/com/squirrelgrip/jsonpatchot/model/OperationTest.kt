@@ -122,16 +122,13 @@ class OperationTest {
         println("appliedDocumentB = $appliedDocumentB => ${appliedDocumentB.appliedDeltas}")
 
 
-        assumeFalse(
-            documentA.toString() != "{}" && documentB.toString() != "{}" &&
-                    (
-                            (documentA["a"].isArray && !documentB["a"].isArray) ||
-                            (documentB["a"].isArray && !documentA["a"].isArray)
-                    )
-        )
-        assumeFalse(
-            documentA.toString() == "{}" || documentB.toString() == "{}"
-        )
+//        assumeFalse(
+//            documentA.toString() != "{}" && documentB.toString() != "{}" &&
+//                    (
+//                            (documentA["a"].isArray && !documentB["a"].isArray) ||
+//                            (documentB["a"].isArray && !documentA["a"].isArray)
+//                    )
+//        )
 
         val appliedDocumentAB = appliedDocumentA.transform(deltaB)
         val appliedDocumentBA = appliedDocumentB.transform(deltaA)

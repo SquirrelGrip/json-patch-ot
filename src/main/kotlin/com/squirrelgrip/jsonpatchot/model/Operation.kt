@@ -1,7 +1,6 @@
 package com.squirrelgrip.jsonpatchot.model
 
 import com.fasterxml.jackson.databind.JsonNode
-import com.github.squirrelgrip.extension.json.toJsonNode
 import com.squirrelgrip.jsonpatchot.model.operation.*
 
 abstract class Operation(
@@ -66,6 +65,28 @@ abstract class Operation(
             proposedOperations
         }
     }
+
+    fun removeOperations(
+        proposedOps: List<Operation>,
+        acceptedWinsOnEqualPath: Boolean = false,
+        skipWhitelist: Boolean = false
+    ): List<Operation> {
+        return proposedOps.filter {
+            var matchesFromToPath = false;
+            if (it is FromOperation) {
+                matchesFromToPath = it.from == path || it.from.path.indexOf("$path/") == 0
+            }
+            val matchesPathToPath =
+                (acceptedWinsOnEqualPath && this.path == it.path) || it.path.path.indexOf("$path/") == 0
+            val shouldSkip = if (skipWhitelist) allowWhitelist(this, it) else false
+            !(!shouldSkip && (matchesFromToPath || matchesPathToPath))
+        }
+    }
+
+    fun allowWhitelist(acceptedOp: Operation, proposedOp: Operation): Boolean {
+        return (proposedOp is AddOperation || proposedOp is TestOperation) && acceptedOp.path == proposedOp.path;
+    };
+
 
 }
 

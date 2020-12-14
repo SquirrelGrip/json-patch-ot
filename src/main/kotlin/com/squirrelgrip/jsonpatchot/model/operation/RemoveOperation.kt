@@ -22,23 +22,28 @@ class RemoveOperation(
     }
 
     override fun transform(operations: List<Operation>): List<Operation> {
-        val candidateOperations = operations.flatMap {
-            val pathsIntersect = it.path.intersects(path)
-            if (pathsIntersect) {
-                if (it is RemoveOperation) {
-                    emptyList()
-                } else if (it is ReplaceOperation) {
-                    listOf(AddOperation(it.path, it.value))
-                } else if (it is AddOperation) {
-                    listOf(AddOperation(it.path, it.value))
-                } else {
-                    listOf(it)
-                }
-            } else {
-                listOf(it)
-            }
+        val filteredOperations = operations.filter {
+            it is RemoveOperation && it.path.intersects(path)
         }
-        return shiftIndices(candidateOperations, false)
+        return shiftIndices(removeOperations(filteredOperations, true, true), false)
+//        val candidateOperations = operations.flatMap {
+//            val pathsIntersect = it.path.intersects(path)
+//            if (pathsIntersect) {
+//                if (it is RemoveOperation) {
+//                    emptyList()
+//                } else if (it is ReplaceOperation) {
+//                    listOf(AddOperation(it.path, it.value))
+//                } else if (it is AddOperation) {
+//                    listOf(AddOperation(it.path, it.value))
+//                } else {
+//                    listOf(it)
+//                }
+//            } else {
+//                listOf(it)
+//            }
+//        }
+//        return shiftIndices(candidateOperations, false)
+
     }
 
     override fun updatePath(updatedPath: JsonPath): Operation {

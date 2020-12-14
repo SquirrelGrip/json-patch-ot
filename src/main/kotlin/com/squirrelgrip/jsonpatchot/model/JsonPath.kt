@@ -47,9 +47,9 @@ class JsonPath(
         val oldIndex = arrayIndex
         val index = acceptedPath.arrayIndex
         // For increment we need to match equal to as well since that element will be bumped forward.
-        val isOldBigger = if (increment) oldIndex >= index else oldIndex > index
-        return if (isOldBigger) {
-            JsonPath("$arrayPath${oldIndex + (if (increment) 1 else -1)}")
+        return if (oldIndex >= index) {
+            val newIndex = Math.max(0, oldIndex + (if (increment) 1 else -1))
+            JsonPath("$arrayPath$newIndex")
         } else {
             this
         }

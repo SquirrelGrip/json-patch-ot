@@ -18,18 +18,10 @@ class ReplaceOperation(
     override val operation: OperationType = OperationType.REPLACE
 
     override fun transform(operations: List<Operation>): List<Operation> {
-        return operations.flatMap {
-            if (it is ReplaceOperation && it.path == path) {
-                if (it.value == value) {
-                    emptyList()
-                } else {
-                    listOf(it)
-                }
-            } else {
-                listOf(it)
-            }
+        val filteredOperations = operations.filter {
+            it !is ReplaceOperation || it.path.intersects(path) && it.value != value
         }
-
+        return removeOperations(filteredOperations, false, false)
     }
 
     override fun updatePath(updatedPath: JsonPath): Operation {

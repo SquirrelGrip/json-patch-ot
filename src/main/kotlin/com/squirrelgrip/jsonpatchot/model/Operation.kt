@@ -69,21 +69,20 @@ abstract class Operation(
     fun removeOperations(
         proposedOps: List<Operation>,
         acceptedWinsOnEqualPath: Boolean = false,
-        skipWhitelist: Boolean = false
+        allowWhitelist: Boolean = false
     ): List<Operation> {
         return proposedOps.filter {
             var matchesFromToPath = false;
             if (it is FromOperation) {
-                matchesFromToPath = it.from == path || it.from.path.indexOf("$path/") == 0
+                matchesFromToPath = it.from == path || it.from.intersects(JsonPath("${path.path}/"))
             }
-            val matchesPathToPath =
-                (acceptedWinsOnEqualPath && this.path == it.path) || it.path.path.indexOf("$path/") == 0
-            val shouldSkip = if (skipWhitelist) allowWhitelist(this, it) else false
-            !(!shouldSkip && (matchesFromToPath || matchesPathToPath))
+            val matchesPathToPath = (acceptedWinsOnEqualPath && it.path == path) || it.path.intersects(JsonPath("${path.path}/"))
+            val shouldKeep = if (allowWhitelist) isWhitelisted(this, it) else false
+            shouldKeep || !(matchesFromToPath || matchesPathToPath)
         }
     }
 
-    fun allowWhitelist(acceptedOp: Operation, proposedOp: Operation): Boolean {
+    fun isWhitelisted(acceptedOp: Operation, proposedOp: Operation): Boolean {
         return (proposedOp is AddOperation || proposedOp is TestOperation) && acceptedOp.path == proposedOp.path;
     };
 

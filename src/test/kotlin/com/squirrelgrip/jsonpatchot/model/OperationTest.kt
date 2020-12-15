@@ -31,7 +31,7 @@ class OperationTest {
                 """{"a":[1,2]}""",
                 """{"a":[1,3]}""",
                 """{"a":[2,3]}""",
-                """{"a":[1,2,3]}"""
+                """{"a":[1,2,3]}""",
             )
             return values.flatMap { original ->
                 values.flatMap { documentA ->
@@ -108,49 +108,32 @@ class OperationTest {
 
         println("Inputs")
         println("original = $original")
-        println("A = $documentA => $diffA => $deltaA")
-        println("B = $documentB => $diffB => $deltaB")
+        println("A = $documentA => $deltaA")
+        println("B = $documentB => $deltaB")
         assertThat(deltaA.toJsonNode()).isEqualTo(diffA.toString().toJsonNode())
         assertThat(deltaB.toJsonNode()).isEqualTo(diffB.toString().toJsonNode())
 
         println("Outputs")
 
         val appliedDocumentA = originalDocument.transform(deltaA)
-        val appliedDocumentB = originalDocument.transform(deltaB)
-
         println("appliedDocumentA = $appliedDocumentA => ${appliedDocumentA.appliedDeltas}")
+        val appliedDocumentB = originalDocument.transform(deltaB)
         println("appliedDocumentB = $appliedDocumentB => ${appliedDocumentB.appliedDeltas}")
 
-
-//        assumeFalse(
-//            documentA.toString() != "{}" && documentB.toString() != "{}" &&
-//                    (
-//                            (documentA["a"].isArray && !documentB["a"].isArray) ||
-//                            (documentB["a"].isArray && !documentA["a"].isArray)
-//                    )
-//        )
-
         val appliedDocumentAB = appliedDocumentA.transform(deltaB)
-        val appliedDocumentBA = appliedDocumentB.transform(deltaA)
-
         println("appliedDocumentAB = $appliedDocumentAB => ${appliedDocumentAB.appliedDeltas}")
+        val appliedDocumentBA = appliedDocumentB.transform(deltaA)
         println("appliedDocumentBA = $appliedDocumentBA => ${appliedDocumentBA.appliedDeltas}")
 
-        var orderDoesNotMatter = false
         if (documentA.toString() == documentB.toString()) {
             assertThat(appliedDocumentAB.appliedDeltas[1].operations).isEmpty()
             assertThat(appliedDocumentBA.appliedDeltas[1].operations).isEmpty()
             assertThat(appliedDocumentAB.source.toString()).isEqualTo(appliedDocumentBA.source.toString())
-            orderDoesNotMatter = true
         }
         if (original.isEmpty || (!documentA.isEmpty && !documentA["a"].isArray && !documentB.isEmpty && !documentB["a"].isArray)) {
             assertThat(appliedDocumentAB.source["a"].asText()).isEqualTo(documentB["a"].asText())
             assertThat(appliedDocumentBA.source["a"].asText()).isEqualTo(documentA["a"].asText())
         }
-        if (orderDoesNotMatter) {
-            assertThat(appliedDocumentAB.source.toString()).isEqualTo(appliedDocumentBA.source.toString())
-        }
-
         assertThat(appliedDocumentA.source.toString()).isEqualTo(documentA.toString())
         assertThat(appliedDocumentB.source.toString()).isEqualTo(documentB.toString())
     }

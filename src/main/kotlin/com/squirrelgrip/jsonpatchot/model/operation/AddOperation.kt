@@ -19,25 +19,15 @@ class AddOperation(
 
     override fun transform(operations: List<Operation>): List<Operation> {
         val filteredOperations = operations.filter {
-            it is AddOperation && it.path == path && it.value != value
+            it !is AddOperation || it.path.intersects(path) && it.value != value
+        }.map {
+            if (it is AddOperation && it.path.intersects(path) && it.value != value && !it.path.isArrayElement) {
+                ReplaceOperation(it.path, it.value)
+            } else {
+                it
+            }
         }
-         val candidateOperations = removeOperations(shiftIndices(filteredOperations, true), false, false)
-//         .flatMap {
-//            if (it is AddOperation && it.path == path) {
-//                if (it.value == value) {
-//                    emptyList()
-//                } else {
-//                    if (it.path.isArrayElement) {
-//                        listOf(it)
-//                    } else {
-//                        listOf(ReplaceOperation(it.path, it.value))
-//                    }
-//                }
-//            } else {
-//                listOf(it)
-//            }
-//        }
-        return candidateOperations;
+        return removeOperations(shiftIndices(filteredOperations, true), false, false);
     }
 
     override fun updatePath(updatedPath: JsonPath): Operation {

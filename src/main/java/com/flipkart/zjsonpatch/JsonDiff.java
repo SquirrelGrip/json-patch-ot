@@ -379,6 +379,7 @@ public final class JsonDiff {
         int targetSize = target.size();
         int lcsSize = lcs.size();
         int pos = 0;
+        List<Diff> removes = new ArrayList<>();
 
         while (lcsIdx < lcsSize) {
             JsonNode lcsNode = lcs.get(lcsIdx);
@@ -399,10 +400,18 @@ public final class JsonDiff {
                     targetIdx++;
                 } else if (lcsNode.equals(targetNode)) { //targetNode node is same as lcs, but not src
                     //removal,
-                    JsonPointer currPath = path.append(pos);
-                    if (flags.contains(DiffFlags.EMIT_TEST_OPERATIONS))
-                        diffs.add(new Diff(Operation.TEST, currPath, srcNode));
-                    diffs.add(Diff.generateDiff(Operation.REMOVE, currPath, srcNode));
+                    if (flags.contains(DiffFlags.REMOVE_REMAINING_FROM_END)) {
+                        JsonPointer currPath = path.append(srcIdx);
+                        removes.add(Diff.generateDiff(Operation.REMOVE, currPath, srcNode));
+                        if (flags.contains(DiffFlags.EMIT_TEST_OPERATIONS)) {
+                            removes.add(new Diff(Operation.TEST, currPath, srcNode));
+                        }
+                    } else {
+                        JsonPointer currPath = path.append(pos);
+                        if (flags.contains(DiffFlags.EMIT_TEST_OPERATIONS))
+                            diffs.add(new Diff(Operation.TEST, currPath, srcNode));
+                        diffs.add(Diff.generateDiff(Operation.REMOVE, currPath, srcNode));
+                    }
                     srcIdx++;
                 } else {
                     JsonPointer currPath = path.append(pos);
@@ -425,23 +434,26 @@ public final class JsonDiff {
             pos++;
         }
         pos = addRemaining(path, target, pos, targetIdx, targetSize);
-        removeRemaining(path, pos, srcIdx, srcSize, source);
+        removeRemaining(path, pos, srcIdx, srcSize, source, removes);
+        while(!removes.isEmpty()) {
+            diffs.add(0, removes.remove(0));
+        }
     }
 
-    private void removeRemaining(JsonPointer path, int pos, int srcIdx, int srcSize, JsonNode source) {
-        int index;
+    private void removeRemaining(JsonPointer path, int pos, int srcIdx, int srcSize, JsonNode source, List<Diff> removes) {
         JsonPointer currPath;
         while (srcIdx < srcSize) {
             if (flags.contains(DiffFlags.REMOVE_REMAINING_FROM_END)) {
-                index = srcSize - srcIdx + pos - 1;
-                currPath = path.append(index);
+                currPath = path.append(srcIdx);
+                removes.add(Diff.generateDiff(Operation.REMOVE, currPath, source.get(srcIdx)));
+                if (flags.contains(DiffFlags.EMIT_TEST_OPERATIONS))
+                    removes.add(new Diff(Operation.TEST, currPath, source.get(srcIdx)));
             } else {
-                index = srcIdx;
                 currPath = path.append(pos);
+                if (flags.contains(DiffFlags.EMIT_TEST_OPERATIONS))
+                    diffs.add(new Diff(Operation.TEST, currPath, source.get(srcIdx)));
+                diffs.add(Diff.generateDiff(Operation.REMOVE, currPath, source.get(srcIdx)));
             }
-            if (flags.contains(DiffFlags.EMIT_TEST_OPERATIONS))
-                diffs.add(new Diff(Operation.TEST, currPath, source.get(index)));
-            diffs.add(Diff.generateDiff(Operation.REMOVE, currPath, source.get(index)));
             srcIdx++;
         }
     }

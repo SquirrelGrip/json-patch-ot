@@ -6,6 +6,7 @@ import com.flipkart.zjsonpatch.DiffFlags
 import com.flipkart.zjsonpatch.JsonDiff
 import com.flipkart.zjsonpatch.JsonPatch
 import com.github.squirrelgrip.extension.json.toJsonNode
+import com.squirrelgrip.jsonpatchot.model.operation.RemoveOperation
 import java.util.*
 
 class Document(
@@ -23,7 +24,7 @@ class Document(
         val transformedSource = JsonPatch.apply(transformedDelta.toJsonNode(), source)
         return Document(
             transformedSource,
-            transformedDelta.version,
+            transformedDelta.version + 1,
             listOf(*appliedDeltas.toTypedArray(), transformedDelta)
         )
     }
@@ -44,20 +45,22 @@ class Delta(
     val operations: List<Operation>
 ) {
     fun transform(document: Document): Delta {
-        val appliedOperations = document.appliedDeltas.flatMap {
-            it.operations
-        }
-        val candidateOperations = if (appliedOperations.isEmpty()) {
-            operations
-        } else {
-            var proposedOperation = operations
-            appliedOperations.forEach {
-                proposedOperation = it.transform(proposedOperation)
-            }
-            proposedOperation
+        val appliedOperations = getAppliedOperations(document)
+        val candidateOperations = getTransformedOperations(appliedOperations).partition {
+            it is RemoveOperation && document.source.at(it.path.path).isArray
         }
 
-        val fillerOperations = candidateOperations.map {
+        val removeOperations = candidateOperations.first.flatMap {
+            val removeOperations = mutableListOf<Operation>()
+            var index = 0
+            (document.source.at(it.path.path) as ArrayNode).forEach { arrayElement ->
+                removeOperations.add(RemoveOperation(JsonPath("${it.path.path}/${index++}"), arrayElement))
+            }
+            removeOperations.add(0, RemoveOperation(it.path, "[]".toJsonNode()))
+            removeOperations.reversed()
+        }
+
+        val addOperations = candidateOperations.second.map {
             it.path
         }.filter {
             it.parent != null && document.source.at(it.parent!!.path).isMissingNode
@@ -65,7 +68,28 @@ class Delta(
             pathsUpTo(it)
         }
 
-        return Delta(document.version, listOf(fillerOperations, candidateOperations).flatten())
+        return Delta(document.version, listOf(removeOperations, addOperations, candidateOperations.second).flatten())
+    }
+
+    private fun getTransformedOperations(appliedOperations: List<Operation>): List<Operation> {
+        return if (appliedOperations.isEmpty()) {
+            operations
+        } else {
+            var transformedOperations = operations
+            appliedOperations.forEach {
+                transformedOperations = it.transform(transformedOperations)
+            }
+            transformedOperations
+        }
+    }
+
+    private fun getAppliedOperations(document: Document): List<Operation> {
+        val appliedOperations = document.appliedDeltas.filter {
+            it.version >= version
+        }.flatMap {
+            it.operations
+        }
+        return appliedOperations
     }
 
     fun toJsonNode(): JsonNode {

@@ -20,6 +20,8 @@ class ReplaceOperation(
     override fun transform(operations: List<Operation>): List<Operation> {
         val filteredOperations = operations.filter {
             it !is ReplaceOperation || it.path.intersects(path) && it.value != value
+        }.filter {
+            it !is RemoveOperation || it.path.intersects(path) && it.value == value
         }
         return removeOperations(filteredOperations, false, false)
     }

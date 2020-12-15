@@ -83,7 +83,7 @@ abstract class Operation(
     }
 
     fun isWhitelisted(acceptedOp: Operation, proposedOp: Operation): Boolean {
-        return (proposedOp is AddOperation || proposedOp is TestOperation) && acceptedOp.path == proposedOp.path;
+        return (proposedOp is AddOperation || proposedOp is TestOperation) && path.intersects(proposedOp.path)
     };
 
 

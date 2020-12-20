@@ -6,7 +6,10 @@ import com.flipkart.zjsonpatch.DiffFlags
 import com.flipkart.zjsonpatch.JsonDiff
 import com.flipkart.zjsonpatch.JsonPatch
 import com.github.squirrelgrip.extension.json.toJsonNode
+import com.squirrelgrip.jsonpatchot.model.operation.AddOperation
 import com.squirrelgrip.jsonpatchot.model.operation.RemoveOperation
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import java.util.*
 
 class Document(
@@ -16,11 +19,22 @@ class Document(
 ) {
     constructor(source: JsonNode) : this(source, 0, emptyList())
 
+    companion object {
+        val LOGGER: Logger = LoggerFactory.getLogger(Document::class.java)
+
+        val DIFF_FLAGS = EnumSet.of(
+            DiffFlags.ADD_EXPLICIT_REMOVE_ADD_ON_REPLACE,
+            DiffFlags.REMOVE_REMAINING_FROM_END,
+            DiffFlags.ARRAY_ELEMENT_AS_OBJECT,
+            DiffFlags.ADD_ARRAY_ELEMENTS,
+            DiffFlags.OMIT_MOVE_OPERATION,
+            DiffFlags.OMIT_COPY_OPERATION
+        )
+    }
+
     fun transform(delta: Delta): Document {
+        LOGGER.debug("original document: $source")
         val transformedDelta: Delta = delta.transform(this)
-//        println()
-//        println(transformedDelta)
-//        println()
         val transformedSource = JsonPatch.apply(transformedDelta.toJsonNode(), source)
         return Document(
             transformedSource,
@@ -30,7 +44,7 @@ class Document(
     }
 
     fun generatePatch(target: JsonNode): Delta {
-        val diff = JsonDiff.asJson(source, target, EnumSet.of(DiffFlags.REMOVE_REMAINING_FROM_END))
+        val diff = JsonDiff.asJson(source, target, DIFF_FLAGS)
         return Delta(version, diff.convert())
     }
 
@@ -44,52 +58,68 @@ class Delta(
     val version: Int,
     val operations: List<Operation>
 ) {
+    companion object {
+        val LOGGER: Logger = LoggerFactory.getLogger(Delta::class.java)
+    }
+
     fun transform(document: Document): Delta {
         val appliedOperations = getAppliedOperations(document)
-        val candidateOperations = getTransformedOperations(appliedOperations).partition {
+        LOGGER.debug("appliedOperations = $appliedOperations")
+        LOGGER.debug("operations = $operations")
+        val partitionedOperations = getTransformedOperations(appliedOperations).partition {
             it is RemoveOperation && document.source.at(it.path.path).isArray
         }
+        LOGGER.debug("partitionedOperations.first = ${partitionedOperations.first}")
+        LOGGER.debug("partitionedOperations.second = ${partitionedOperations.second}")
 
-        val removeOperations = candidateOperations.first.flatMap {
+        val removeOperations = partitionedOperations.first.flatMap {
             val removeOperations = mutableListOf<Operation>()
             var index = 0
             (document.source.at(it.path.path) as ArrayNode).forEach { arrayElement ->
                 removeOperations.add(RemoveOperation(JsonPath("${it.path.path}/${index++}"), arrayElement))
             }
-            removeOperations.add(0, RemoveOperation(it.path, "[]".toJsonNode()))
             removeOperations.reversed()
         }
+        LOGGER.debug("removeOperations = $removeOperations")
 
-        val addOperations = candidateOperations.second.map {
+        val filteredOperations = partitionedOperations.second.filter {
+            !(it is AddOperation && it.value.isArray && it.value.isEmpty && !document.source.at(it.path.path).isMissingNode)
+        }
+
+        val addOperations = filteredOperations.map {
             it.path
         }.filter {
             it.parent != null && document.source.at(it.parent!!.path).isMissingNode
         }.distinct().flatMap {
-            pathsUpTo(it)
+            generateFillerOperations(it)
         }
+        LOGGER.debug("addOperations = $addOperations")
 
-        return Delta(document.version, listOf(removeOperations, addOperations, candidateOperations.second).flatten())
+        return Delta(document.version, listOf(removeOperations, addOperations, filteredOperations).flatten())
+    }
+
+    private fun generateFillerOperations(jsonPath: JsonPath): List<Operation> {
+        return jsonPath.names.filter {
+            it.parent != null
+        }.map {
+            if (it.isArrayElement) {
+                AddOperation(it.parent!!, "[]".toJsonNode())
+            } else {
+                AddOperation(it.parent!!, "{}".toJsonNode())
+            }
+        }
     }
 
     private fun getTransformedOperations(appliedOperations: List<Operation>): List<Operation> {
-        return if (appliedOperations.isEmpty()) {
-            operations
-        } else {
-            var transformedOperations = operations
-            appliedOperations.forEach {
-                transformedOperations = it.transform(transformedOperations)
-            }
-            transformedOperations
-        }
+        return getTransformedOperations(appliedOperations, operations)
     }
 
     private fun getAppliedOperations(document: Document): List<Operation> {
-        val appliedOperations = document.appliedDeltas.filter {
+        return document.appliedDeltas.filter {
             it.version >= version
         }.flatMap {
             it.operations
         }
-        return appliedOperations
     }
 
     fun toJsonNode(): JsonNode {
@@ -113,4 +143,19 @@ fun JsonNode.convert(): List<Operation> =
     } else {
         listOf(Operation.create(this))
     }
+
+fun getTransformedOperations(
+    appliedOperations: List<Operation>,
+    candidateOperations: List<Operation>
+): List<Operation> {
+    return if (appliedOperations.isEmpty()) {
+        candidateOperations
+    } else {
+        var transformedOperations = candidateOperations
+        appliedOperations.forEach {
+            transformedOperations = it.transform(transformedOperations)
+        }
+        transformedOperations
+    }
+}
 

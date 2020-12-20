@@ -27,7 +27,7 @@ class JsonPath(
     val isArrayElement: Boolean
         get() = name.isNumber()
     val parent: JsonPath?
-        get() = if (lastSlashIndex >= 0 - 1) JsonPath(path.substring(0, lastSlashIndex)) else null
+        get() = if (lastSlashIndex > 0) JsonPath(path.substring(0, lastSlashIndex)) else null
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

@@ -22,12 +22,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.collections4.ListUtils;
 
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * User: gopi.vishwakarma
@@ -57,7 +52,7 @@ public final class JsonDiff {
             diff.diffs.add(Diff.generateDiff(Operation.REMOVE, JsonPointer.ROOT, source));
         }
         if (source != null && target != null) {
-            diff.generateDiffs(JsonPointer.ROOT, source, target);
+            diff.generateDiffs(JsonPointer.ROOT, source, target, false);
 
             if (!flags.contains(DiffFlags.OMIT_MOVE_OPERATION))
                 // Merging remove & add to move operation
@@ -350,15 +345,15 @@ public final class JsonDiff {
         return jsonNode;
     }
 
-    private void generateDiffs(JsonPointer path, JsonNode source, JsonNode target) {
+    private void generateDiffs(JsonPointer path, JsonNode source, JsonNode target, boolean arrayElementsAsObjects) {
         if (!source.equals(target)) {
             final NodeType sourceType = NodeType.getNodeType(source);
             final NodeType targetType = NodeType.getNodeType(target);
 
-            if (sourceType == NodeType.ARRAY && targetType == NodeType.ARRAY) {
+            if (sourceType == NodeType.ARRAY && targetType == NodeType.ARRAY && !arrayElementsAsObjects) {
                 //both are arrays
                 compareArray(path, source, target);
-            } else if (sourceType == NodeType.OBJECT && targetType == NodeType.OBJECT) {
+            } else if (sourceType == NodeType.OBJECT && targetType == NodeType.OBJECT && !arrayElementsAsObjects) {
                 //both are json
                 compareObjects(path, source, target);
             } else {
@@ -416,7 +411,7 @@ public final class JsonDiff {
                 } else {
                     JsonPointer currPath = path.append(pos);
                     //both are unequal to lcs node
-                    generateDiffs(currPath, srcNode, targetNode);
+                    generateDiffs(currPath, srcNode, targetNode, false);
                     srcIdx++;
                     targetIdx++;
                     pos++;
@@ -428,14 +423,14 @@ public final class JsonDiff {
             JsonNode srcNode = source.get(srcIdx);
             JsonNode targetNode = target.get(targetIdx);
             JsonPointer currPath = path.append(pos);
-            generateDiffs(currPath, srcNode, targetNode);
+            generateDiffs(currPath, srcNode, targetNode, flags.contains(DiffFlags.ARRAY_ELEMENT_AS_OBJECT));
             srcIdx++;
             targetIdx++;
             pos++;
         }
         pos = addRemaining(path, target, pos, targetIdx, targetSize);
         removeRemaining(path, pos, srcIdx, srcSize, source, removes);
-        while(!removes.isEmpty()) {
+        while (!removes.isEmpty()) {
             diffs.add(0, removes.remove(0));
         }
     }
@@ -476,13 +471,24 @@ public final class JsonDiff {
             if (!target.has(key)) {
                 //remove case
                 JsonPointer currPath = path.append(key);
-                if (flags.contains(DiffFlags.EMIT_TEST_OPERATIONS))
-                    diffs.add(new Diff(Operation.TEST, currPath, source.get(key)));
-                diffs.add(Diff.generateDiff(Operation.REMOVE, currPath, source.get(key)));
+                JsonNode valueNode = source.get(key);
+                if (flags.contains(DiffFlags.ADD_ARRAY_ELEMENTS) && valueNode.isArray() && !valueNode.isEmpty()) {
+                    for (int i = valueNode.size() - 1; i >= 0; i--) {
+                        JsonNode jsonNode = valueNode.get(i);
+                        JsonPointer arrayElementPath = currPath.append(i);
+                        if (flags.contains(DiffFlags.EMIT_TEST_OPERATIONS))
+                            diffs.add(new Diff(Operation.TEST, currPath, valueNode));
+                        diffs.add(Diff.generateDiff(Operation.REMOVE, arrayElementPath, jsonNode));
+                    }
+                } else {
+                    if (flags.contains(DiffFlags.EMIT_TEST_OPERATIONS))
+                        diffs.add(new Diff(Operation.TEST, currPath, valueNode));
+                    diffs.add(Diff.generateDiff(Operation.REMOVE, currPath, valueNode));
+                }
                 continue;
             }
             JsonPointer currPath = path.append(key);
-            generateDiffs(currPath, source.get(key), target.get(key));
+            generateDiffs(currPath, source.get(key), target.get(key), false);
         }
         Iterator<String> keysFromTarget = target.fieldNames();
         while (keysFromTarget.hasNext()) {
@@ -490,7 +496,16 @@ public final class JsonDiff {
             if (!source.has(key)) {
                 //add case
                 JsonPointer currPath = path.append(key);
-                diffs.add(Diff.generateDiff(Operation.ADD, currPath, target.get(key)));
+                JsonNode valueNode = target.get(key);
+                if (flags.contains(DiffFlags.ADD_ARRAY_ELEMENTS) && valueNode.isArray() && !valueNode.isEmpty()) {
+                    int i = 0;
+                    for (JsonNode jsonNode : valueNode) {
+                        JsonPointer arrayElementPath = currPath.append(i++);
+                        diffs.add(Diff.generateDiff(Operation.ADD, arrayElementPath, jsonNode));
+                    }
+                } else {
+                    diffs.add(Diff.generateDiff(Operation.ADD, currPath, valueNode));
+                }
             }
         }
     }

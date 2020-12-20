@@ -22,20 +22,43 @@ class RemoveOperation(
     }
 
     override fun transform(operations: List<Operation>): List<Operation> {
-        val filteredOperations = operations.filter {
-            it !is RemoveOperation || !it.path.intersects(path) || !it.path.isArrayElement
-        }.map {
-            if (it is ReplaceOperation && it.path.intersects(path)) {
+        LOGGER.debug("appliedOperation = $this")
+        LOGGER.debug("operations = $operations")
+        val a = operations.partition {
+            !(it is RemoveOperation && it.path.isArrayElement && path.isArrayElement && it.path.parent == path.parent && it.value == value)
+        }
+        var b = a.first
+        a.second.forEach {
+            b = shiftIndices(b, it is AddOperation)
+        }
+        val c = b.map {
+            if (it is ReplaceOperation && path == it.path && value == it.value && !it.path.isArrayElement) {
                 AddOperation(it.path, it.value)
             } else {
                 it
             }
         }
-        return shiftIndices(removeOperations(filteredOperations, true, true), false)
+        return shiftIndices(removeOperations(c, true, true).first, false)
     }
 
     override fun updatePath(updatedPath: JsonPath): Operation {
         return RemoveOperation(updatedPath, value)
+    }
+
+    override fun keepOperation(operation: Operation, replaceAccepted: Boolean, allowWhiteList: Boolean): Boolean {
+        return if (operation is ReplaceOperation) {
+            replaceAccepted && !operation.path.isArrayElement && operation.path == path && operation.value != value
+        } else if (operation is ValueOperation) {
+            if (operation.path.isArrayElement) {
+                operation.path.parent != path.parent || operation.value != value
+            } else {
+                val keepScalar = operation.path != path || operation.value != value
+                val isEmptyArray = operation.value.isArray && operation.value.isEmpty
+                keepScalar && !isEmptyArray
+            }
+        } else {
+            super.keepOperation(operation, replaceAccepted, allowWhiteList)
+        }
     }
 
 }

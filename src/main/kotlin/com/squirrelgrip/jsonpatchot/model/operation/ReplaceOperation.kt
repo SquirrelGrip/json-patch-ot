@@ -23,7 +23,7 @@ class ReplaceOperation(
         }.filter {
             it !is RemoveOperation || it.path.intersects(path) && it.value == value
         }
-        return removeOperations(filteredOperations, false, false)
+        return removeOperations(filteredOperations, false, false).first
     }
 
     override fun updatePath(updatedPath: JsonPath): Operation {

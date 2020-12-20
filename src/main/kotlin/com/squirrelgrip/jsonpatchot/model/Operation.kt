@@ -2,6 +2,8 @@ package com.squirrelgrip.jsonpatchot.model
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.squirrelgrip.jsonpatchot.model.operation.*
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 abstract class Operation(
     val path: JsonPath
@@ -9,6 +11,8 @@ abstract class Operation(
     constructor(path: String) : this(JsonPath(path))
 
     companion object {
+        val LOGGER: Logger = LoggerFactory.getLogger(Operation::class.java)
+
         fun create(jsonNode: JsonNode): Operation {
             val path = jsonNode["path"].asText()
             val value = jsonNode["value"] ?: ""
@@ -49,12 +53,12 @@ abstract class Operation(
     abstract fun updatePath(updatedPath: JsonPath): Operation
 
     fun shiftIndices(
-        proposedOperations: List<Operation>,
+        operations: List<Operation>,
         isAdd: Boolean = false
     ): List<Operation> {
-        return if (path.isArrayElement) {
-            proposedOperations.map {
-                // TODO Deal with `from` in FromOperation
+        LOGGER.debug("Before shift: $operations")
+        val shiftedOperations = if (path.isArrayElement) {
+            operations.map {
                 if (it.path.hasSameArrayPath(path)) {
                     it.updatePath(it.path.replacePathIndices(path, isAdd))
                 } else {
@@ -62,30 +66,39 @@ abstract class Operation(
                 }
             }
         } else {
-            proposedOperations
+            operations
         }
+        LOGGER.debug("After shift: $shiftedOperations")
+        return shiftedOperations
     }
 
     fun removeOperations(
-        proposedOps: List<Operation>,
-        acceptedWinsOnEqualPath: Boolean = false,
+        operations: List<Operation>,
+        replaceAccepted: Boolean = false,
         allowWhitelist: Boolean = false
-    ): List<Operation> {
-        return proposedOps.filter {
-            var matchesFromToPath = false;
-            if (it is FromOperation) {
-                matchesFromToPath = it.from == path || it.from.intersects(JsonPath("${path.path}/"))
-            }
-            val matchesPathToPath = (acceptedWinsOnEqualPath && it.path == path) || it.path.intersects(JsonPath("${path.path}/"))
-            val shouldKeep = if (allowWhitelist) isWhitelisted(this, it) else false
-            shouldKeep || !(matchesFromToPath || matchesPathToPath)
+    ): Pair<List<Operation>, List<Operation>> {
+        LOGGER.debug("Before remove: $operations")
+        val partition = operations.partition {
+            keepOperation(it, replaceAccepted, allowWhitelist)
         }
+        LOGGER.debug("After remove (kept): ${partition.first}")
+        LOGGER.debug("After remove (removed): ${partition.second}")
+        return partition
     }
 
-    fun isWhitelisted(acceptedOp: Operation, proposedOp: Operation): Boolean {
-        return (proposedOp is AddOperation || proposedOp is TestOperation) && path.intersects(proposedOp.path)
-    };
+    open fun keepOperation(
+        operation: Operation,
+        replaceAccepted: Boolean,
+        allowWhiteList: Boolean
+    ): Boolean {
+        val pathsMatch = replaceAccepted && operation.path == path
+        val isWhiteListed = if (allowWhiteList) isWhiteListed(operation) else false
+        return isWhiteListed || !pathsMatch
+    }
 
+    fun isWhiteListed(operation: Operation): Boolean {
+        return (operation is AddOperation || operation is TestOperation || operation is ReplaceOperation) && path.intersects(operation.path)
+    }
 
 }
 
@@ -93,6 +106,17 @@ abstract class FromOperation(
     path: JsonPath,
     val from: JsonPath
 ) : Operation(path) {
+    override fun keepOperation(
+        operation: Operation,
+        replaceAccepted: Boolean,
+        allowWhitelist: Boolean
+    ): Boolean {
+        val pathsMatch =
+            (replaceAccepted && operation.path == path) && operation.path.path.indexOf("${path.path}/") == 0
+        val shouldKeep = if (allowWhitelist) isWhiteListed(operation) else false
+        return shouldKeep || !pathsMatch
+    }
+
     override fun toString(): String {
         return """{"op":"${operation.value}","path":"$path","from":"$from"}"""
     }
@@ -117,6 +141,7 @@ abstract class ValueOperation(
     path: JsonPath,
     val value: JsonNode
 ) : Operation(path) {
+
     override fun toString(): String {
         return """{"op":"${operation.value}","path":"$path","value":$value}"""
     }
@@ -134,3 +159,28 @@ abstract class ValueOperation(
         return result
     }
 }
+
+fun allowWhitelist (acceptedOp: Operation, proposedOp: Operation): Boolean {
+    return (proposedOp.operation == OperationType.ADD || proposedOp.operation == OperationType.TEST) && acceptedOp.path == proposedOp.path
+}
+
+fun removeOperations(
+    acceptedOp: Operation,
+    proposedOps: MutableList<Operation>,
+    acceptedWinsOnEqualPath: Boolean,
+    skipWhitelist: Boolean = false
+) {
+    var currentIndex = 0
+    var proposedOp: Operation
+    while (currentIndex < proposedOps.size) {
+        proposedOp = proposedOps[currentIndex]
+        val matchesPathToPath = (acceptedWinsOnEqualPath && acceptedOp.path == proposedOp.path) || proposedOp.path.path.indexOf("${acceptedOp.path}/") == 0
+        val shouldSkip = if (skipWhitelist) allowWhitelist (acceptedOp, proposedOp) else false
+        if (!shouldSkip && matchesPathToPath) {
+            proposedOps.removeAt(currentIndex)
+            currentIndex--
+        }
+        currentIndex++
+    }
+}
+

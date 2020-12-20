@@ -80,7 +80,7 @@ public enum DiffFlags {
      *
      * @since 0.4.12
      */
-    REMOVE_REMAINING_FROM_END;
+    REMOVE_REMAINING_FROM_END, ARRAY_ELEMENT_AS_OBJECT, ADD_ARRAY_ELEMENTS;
 
 
     public static EnumSet<DiffFlags> defaults() {

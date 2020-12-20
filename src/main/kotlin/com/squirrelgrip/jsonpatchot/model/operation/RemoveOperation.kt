@@ -24,9 +24,7 @@ class RemoveOperation(
     override fun transform(operations: List<Operation>): List<Operation> {
         LOGGER.debug("appliedOperation = $this")
         LOGGER.debug("operations = $operations")
-        val a = operations.partition {
-            !(it is RemoveOperation && it.path.isArrayElement && path.isArrayElement && it.path.parent == path.parent && it.value == value)
-        }
+        val a = removeOperations(operations, true, true)
         var b = a.first
         a.second.forEach {
             b = shiftIndices(b, it is AddOperation)

@@ -20,4 +20,6 @@ class TestOperation(
     override fun updatePath(updatedPath: JsonPath): Operation {
         return TestOperation(updatedPath, value)
     }
+
+    override fun reverse(): Operation = TestOperation(path, value)
 }

@@ -30,7 +30,7 @@ class RemoveOperation(
             b = shiftIndices(b, it is AddOperation)
         }
         val c = b.map {
-            if (it is ReplaceOperation && path == it.path && value == it.value && !it.path.isArrayElement) {
+            if (it is ReplaceOperation && path == it.path && value != it.value) {
                 AddOperation(it.path, it.value)
             } else {
                 it
@@ -45,7 +45,7 @@ class RemoveOperation(
 
     override fun keepOperation(operation: Operation, replaceAccepted: Boolean, allowWhiteList: Boolean): Boolean {
         return if (operation is ReplaceOperation) {
-            replaceAccepted && !operation.path.isArrayElement && operation.path == path && operation.value != value
+            replaceAccepted && operation.path == path && operation.value != value
         } else if (operation is ValueOperation) {
             if (operation.path.isArrayElement) {
                 operation.path.parent != path.parent || operation.value != value
@@ -58,6 +58,8 @@ class RemoveOperation(
             super.keepOperation(operation, replaceAccepted, allowWhiteList)
         }
     }
+
+    override fun reverse(): Operation = AddOperation(path, value)
 
 }
 

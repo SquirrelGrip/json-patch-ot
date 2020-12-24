@@ -27,7 +27,7 @@ class AddOperation(
         LOGGER.debug("appliedOperation = $this")
         LOGGER.debug("operations = $operations")
         val a = operations.partition {
-            !(it is AddOperation && it.path.isArrayElement && path.isArrayElement && it.path.parent == path.parent && it.value == value)
+            it !is AddOperation || !(it.path.isArrayElement && path.isArrayElement && it.path.parent == path.parent && it.value == value)
         }
         var b = a.first
         a.second.forEach {
@@ -64,5 +64,7 @@ class AddOperation(
             super.keepOperation(operation, replaceAccepted, allowWhiteList)
         }
     }
+
+    override fun reverse(): Operation = RemoveOperation(path, value)
 
 }

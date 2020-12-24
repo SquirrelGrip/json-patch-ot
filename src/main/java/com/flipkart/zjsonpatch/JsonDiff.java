@@ -230,11 +230,19 @@ public final class JsonDiff {
         for (Diff diff : diffs) {
             if (!diff.getOperation().equals(Operation.REPLACE) || diff.getSrcValue() == null) {
                 updatedDiffs.add(diff);
-                continue;
+            } else {
+                //Split into two #REMOVE and #ADD
+                boolean shouldReplace = true;
+                if (flags.contains(DiffFlags.ADD_EXPLICIT_REMOVE_ADD_ON_REPLACE_ON_ARRAY_ELEMENTS_ONLY)) {
+                    shouldReplace = diff.getPath().toString().substring(diff.getPath().toString().lastIndexOf('/') + 1).matches("\\d+");
+                }
+                if (shouldReplace) {
+                    updatedDiffs.add(new Diff(Operation.REMOVE, diff.getPath(), diff.getSrcValue()));
+                    updatedDiffs.add(new Diff(Operation.ADD, diff.getPath(), diff.getValue()));
+                } else {
+                    updatedDiffs.add(diff);
+                }
             }
-            //Split into two #REMOVE and #ADD
-            updatedDiffs.add(new Diff(Operation.REMOVE, diff.getPath(), diff.getSrcValue()));
-            updatedDiffs.add(new Diff(Operation.ADD, diff.getPath(), diff.getValue()));
         }
         diffs.clear();
         diffs.addAll(updatedDiffs);
@@ -395,7 +403,7 @@ public final class JsonDiff {
                     targetIdx++;
                 } else if (lcsNode.equals(targetNode)) { //targetNode node is same as lcs, but not src
                     //removal,
-                    if (flags.contains(DiffFlags.REMOVE_REMAINING_FROM_END)) {
+                    if (flags.contains(DiffFlags.REMOVE_ARRAY_ELEMENTS_FROM_END)) {
                         JsonPointer currPath = path.append(srcIdx);
                         removes.add(Diff.generateDiff(Operation.REMOVE, currPath, srcNode));
                         if (flags.contains(DiffFlags.EMIT_TEST_OPERATIONS)) {
@@ -438,7 +446,7 @@ public final class JsonDiff {
     private void removeRemaining(JsonPointer path, int pos, int srcIdx, int srcSize, JsonNode source, List<Diff> removes) {
         JsonPointer currPath;
         while (srcIdx < srcSize) {
-            if (flags.contains(DiffFlags.REMOVE_REMAINING_FROM_END)) {
+            if (flags.contains(DiffFlags.REMOVE_ARRAY_ELEMENTS_FROM_END)) {
                 currPath = path.append(srcIdx);
                 removes.add(Diff.generateDiff(Operation.REMOVE, currPath, source.get(srcIdx)));
                 if (flags.contains(DiffFlags.EMIT_TEST_OPERATIONS))

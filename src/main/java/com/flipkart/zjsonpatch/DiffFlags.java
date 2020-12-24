@@ -58,6 +58,7 @@ public enum DiffFlags {
      * @since 0.4.11
      */
     ADD_EXPLICIT_REMOVE_ADD_ON_REPLACE,
+    ADD_EXPLICIT_REMOVE_ADD_ON_REPLACE_ON_ARRAY_ELEMENTS_ONLY,
 
     /**
      * This flag instructs the diff generator to emit {@link Operation#TEST} operations
@@ -80,7 +81,9 @@ public enum DiffFlags {
      *
      * @since 0.4.12
      */
-    REMOVE_REMAINING_FROM_END, ARRAY_ELEMENT_AS_OBJECT, ADD_ARRAY_ELEMENTS;
+    REMOVE_ARRAY_ELEMENTS_FROM_END,
+    ARRAY_ELEMENT_AS_OBJECT,
+    ADD_ARRAY_ELEMENTS;
 
 
     public static EnumSet<DiffFlags> defaults() {

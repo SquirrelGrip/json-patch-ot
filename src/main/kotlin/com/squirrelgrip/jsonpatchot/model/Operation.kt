@@ -1,6 +1,7 @@
 package com.squirrelgrip.jsonpatchot.model
 
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.ArrayNode
 import com.squirrelgrip.jsonpatchot.model.operation.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -16,12 +17,13 @@ abstract class Operation(
         fun create(jsonNode: JsonNode): Operation {
             val path = jsonNode["path"].asText()
             val value = jsonNode["value"] ?: ""
+            val fromValue = jsonNode["fromValue"] ?: ""
             val from = jsonNode["from"]?.asText() ?: ""
             return when (jsonNode["op"].asText()) {
                 "add" -> AddOperation(path, value)
                 "test" -> TestOperation(path, value)
                 "remove" -> RemoveOperation(path, value)
-                "replace" -> ReplaceOperation(path, value)
+                "replace" -> ReplaceOperation(path, value, fromValue)
                 "move" -> MoveOperation(path, from)
                 "copy" -> CopyOperation(path, from)
                 else -> throw InvalidOperationException()
@@ -100,6 +102,8 @@ abstract class Operation(
         return (operation is AddOperation || operation is TestOperation || operation is ReplaceOperation) && path.intersects(operation.path)
     }
 
+    abstract fun reverse(): Operation
+
 }
 
 abstract class FromOperation(
@@ -161,7 +165,7 @@ abstract class ValueOperation(
 }
 
 fun allowWhitelist (acceptedOp: Operation, proposedOp: Operation): Boolean {
-    return (proposedOp.operation == OperationType.ADD || proposedOp.operation == OperationType.TEST) && acceptedOp.path == proposedOp.path
+    return proposedOp.operation in arrayOf(OperationType.ADD, OperationType.TEST) && acceptedOp.path == proposedOp.path
 }
 
 fun removeOperations(
@@ -183,4 +187,33 @@ fun removeOperations(
         currentIndex++
     }
 }
+
+fun JsonNode.convert(): List<Operation> =
+    if (this is ArrayNode) {
+        this.map {
+            Operation.create(it)
+        }.toList()
+    } else {
+        listOf(Operation.create(this))
+    }
+
+fun getTransformedOperations(
+    appliedOperations: List<Operation>,
+    candidateOperations: List<Operation>
+): List<Operation> {
+    return if (appliedOperations.isEmpty()) {
+        candidateOperations.filter {
+            it !is RemoveOperation || !(it.value.isArray && it.value.isEmpty)
+        }
+    } else {
+        var transformedOperations = candidateOperations.filter {
+            it !is AddOperation || !(it.value.isArray && it.value.isEmpty)
+        }
+        appliedOperations.forEach {
+            transformedOperations = it.transform(transformedOperations)
+        }
+        transformedOperations
+    }
+}
+
 

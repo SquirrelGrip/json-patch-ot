@@ -104,10 +104,10 @@ internal class ValueOperationTest {
         assertThat(removeOperations(appliedOperation, candidateOperation, true, false)).contains(candidateOperation)
         assertThat(removeOperations(appliedOperation, candidateOperation, false, true)).contains(candidateOperation)
         assertThat(removeOperations(appliedOperation, candidateOperation, false, false)).contains(candidateOperation)
-        assertThat(appliedOperation.keepOperation(candidateOperation, true, true)).isTrue()
-        assertThat(appliedOperation.keepOperation(candidateOperation, true, false)).isTrue()
-        assertThat(appliedOperation.keepOperation(candidateOperation, false, true)).isTrue()
-        assertThat(appliedOperation.keepOperation(candidateOperation, false, false)).isTrue()
+        assertThat(appliedOperation.keepOperation(candidateOperation, true, true)).isFalse()
+        assertThat(appliedOperation.keepOperation(candidateOperation, true, false)).isFalse()
+        assertThat(appliedOperation.keepOperation(candidateOperation, false, true)).isFalse()
+        assertThat(appliedOperation.keepOperation(candidateOperation, false, false)).isFalse()
     }
 
     @Test
@@ -414,8 +414,8 @@ internal class ValueOperationTest {
         assertThat(removeOperations(appliedOperation, candidateOperation, false, false)).contains(candidateOperation)
         assertThat(appliedOperation.keepOperation(candidateOperation, true, true)).isFalse()
         assertThat(appliedOperation.keepOperation(candidateOperation, true, false)).isFalse()
-        assertThat(appliedOperation.keepOperation(candidateOperation, false, true)).isTrue()
-        assertThat(appliedOperation.keepOperation(candidateOperation, false, false)).isTrue()
+        assertThat(appliedOperation.keepOperation(candidateOperation, false, true)).isFalse()
+        assertThat(appliedOperation.keepOperation(candidateOperation, false, false)).isFalse()
     }
 
     @Test
@@ -426,8 +426,8 @@ internal class ValueOperationTest {
         assertThat(removeOperations(appliedOperation, candidateOperation, true, false)).isEmpty()
         assertThat(removeOperations(appliedOperation, candidateOperation, false, true)).contains(candidateOperation)
         assertThat(removeOperations(appliedOperation, candidateOperation, false, false)).contains(candidateOperation)
-        assertThat(appliedOperation.keepOperation(candidateOperation, true, true)).isFalse()
-        assertThat(appliedOperation.keepOperation(candidateOperation, true, false)).isFalse()
+        assertThat(appliedOperation.keepOperation(candidateOperation, true, true)).isTrue()
+        assertThat(appliedOperation.keepOperation(candidateOperation, true, false)).isTrue()
         assertThat(appliedOperation.keepOperation(candidateOperation, false, true)).isTrue()
         assertThat(appliedOperation.keepOperation(candidateOperation, false, false)).isTrue()
     }

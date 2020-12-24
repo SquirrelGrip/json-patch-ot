@@ -1,5 +1,6 @@
 package com.squirrelgrip.jsonpatchot.model.operation
 
+import com.github.squirrelgrip.extension.json.toJsonNode
 import com.squirrelgrip.jsonpatchot.model.FromOperation
 import com.squirrelgrip.jsonpatchot.model.JsonPath
 import com.squirrelgrip.jsonpatchot.model.Operation
@@ -16,4 +17,6 @@ class CopyOperation(
     override fun updatePath(updatedPath: JsonPath): Operation {
         return CopyOperation(updatedPath, from)
     }
+
+    override fun reverse(): Operation = RemoveOperation(path, "".toJsonNode())
 }

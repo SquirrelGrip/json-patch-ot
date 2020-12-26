@@ -60,6 +60,14 @@ public enum DiffFlags {
     ADD_EXPLICIT_REMOVE_ADD_ON_REPLACE,
 
     /**
+     * This flag works the same as ADD_EXPLICIT_REMOVE_ADD_ON_REPLACE however will only
+     * normalize array elements.
+     *
+     * @since 0.4.12
+     */
+    ADD_EXPLICIT_REMOVE_ADD_ON_REPLACE_FOR_ARRAY_ELEMENTS,
+
+    /**
      * This flag instructs the diff generator to emit {@link Operation#TEST} operations
      * that validate the state of the source document before each mutation. This can be
      * useful if you want to ensure data integrity prior to applying the patch.

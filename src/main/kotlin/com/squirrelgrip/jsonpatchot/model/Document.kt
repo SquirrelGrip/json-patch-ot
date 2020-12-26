@@ -6,7 +6,7 @@ import com.flipkart.zjsonpatch.DiffFlags
 import com.flipkart.zjsonpatch.JsonDiff
 import com.flipkart.zjsonpatch.JsonPatch
 import com.github.squirrelgrip.extension.json.toJsonNode
-import com.squirrelgrip.jsonpatchot.model.operation.RemoveOperation
+import org.slf4j.LoggerFactory
 import java.util.*
 
 class Document(
@@ -14,13 +14,20 @@ class Document(
     val version: Int,
     val appliedDeltas: List<Delta>
 ) {
+
+    companion object {
+        val LOGGER = LoggerFactory.getLogger(Document::class.java)
+
+        val DIFF_FLAGS: EnumSet<DiffFlags> = EnumSet.of(
+            DiffFlags.REMOVE_REMAINING_FROM_END,
+            DiffFlags.ADD_ORIGINAL_VALUE_ON_REPLACE,
+        )
+    }
+
     constructor(source: JsonNode) : this(source, 0, emptyList())
 
     fun transform(delta: Delta): Document {
         val transformedDelta: Delta = delta.transform(this)
-//        println()
-//        println(transformedDelta)
-//        println()
         val transformedSource = JsonPatch.apply(transformedDelta.toJsonNode(), source)
         return Document(
             transformedSource,
@@ -30,7 +37,7 @@ class Document(
     }
 
     fun generatePatch(target: JsonNode): Delta {
-        val diff = JsonDiff.asJson(source, target, EnumSet.of(DiffFlags.REMOVE_REMAINING_FROM_END))
+        val diff = JsonDiff.asJson(source, target, DIFF_FLAGS)
         return Delta(version, diff.convert())
     }
 
@@ -38,69 +45,16 @@ class Document(
         return source.toString()
     }
 
-}
-
-class Delta(
-    val version: Int,
-    val operations: List<Operation>
-) {
-    fun transform(document: Document): Delta {
-        val appliedOperations = getAppliedOperations(document)
-        val candidateOperations = getTransformedOperations(appliedOperations).partition {
-            it is RemoveOperation && document.source.at(it.path.path).isArray
+    fun getOriginalSource(delta: Delta): JsonNode {
+        val appliedOperations = delta.getAppliedOperations(this)
+        if (appliedOperations.isEmpty()) {
+            return this.source
         }
-
-        val removeOperations = candidateOperations.first.flatMap {
-            val removeOperations = mutableListOf<Operation>()
-            var index = 0
-            (document.source.at(it.path.path) as ArrayNode).forEach { arrayElement ->
-                removeOperations.add(RemoveOperation(JsonPath("${it.path.path}/${index++}"), arrayElement))
-            }
-            removeOperations.add(0, RemoveOperation(it.path, "[]".toJsonNode()))
-            removeOperations.reversed()
-        }
-
-        val addOperations = candidateOperations.second.map {
-            it.path
-        }.filter {
-            it.parent != null && document.source.at(it.parent!!.path).isMissingNode
-        }.distinct().flatMap {
-            pathsUpTo(it)
-        }
-
-        return Delta(document.version, listOf(removeOperations, addOperations, candidateOperations.second).flatten())
-    }
-
-    private fun getTransformedOperations(appliedOperations: List<Operation>): List<Operation> {
-        return if (appliedOperations.isEmpty()) {
-            operations
-        } else {
-            var transformedOperations = operations
-            appliedOperations.forEach {
-                transformedOperations = it.transform(transformedOperations)
-            }
-            transformedOperations
-        }
-    }
-
-    private fun getAppliedOperations(document: Document): List<Operation> {
-        val appliedOperations = document.appliedDeltas.filter {
-            it.version >= version
-        }.flatMap {
-            it.operations
-        }
-        return appliedOperations
-    }
-
-    fun toJsonNode(): JsonNode {
-        val json = operations.map {
-            it.toString()
-        }.joinToString(",", "[", "]")
-        return json.toJsonNode()
-    }
-
-    override fun toString(): String {
-        return operations.toString()
+        val reversedAppliedOperations = appliedOperations.map {
+            it.reverse()
+        }.reversed()
+        val jsonPatch = reversedAppliedOperations.map { it.toString() }.joinToString(",", "[", "]").toJsonNode()
+        return JsonPatch.apply(jsonPatch, source)
     }
 
 }

@@ -10,23 +10,26 @@ import com.squirrelgrip.jsonpatchot.model.ValueOperation
 
 class ReplaceOperation(
     path: JsonPath,
-    value: JsonNode
-): ValueOperation(path, value) {
-    constructor(path: String, value: Any): this(JsonPath(path), value.toJson().toJsonNode())
-    constructor(path: String, value: JsonNode): this(JsonPath(path), value)
+    value: JsonNode,
+    val fromValue: JsonNode
+) : ValueOperation(path, value) {
+    constructor(path: String, value: Any, fromValue: Any) : this(JsonPath(path), value.toJson().toJsonNode(), fromValue.toJson().toJsonNode())
+    constructor(path: String, value: JsonNode, fromValue: JsonNode) : this(JsonPath(path), value, fromValue)
 
     override val operation: OperationType = OperationType.REPLACE
 
+    override fun toString(): String {
+        return """{"op":"${operation.value}","fromValue":$fromValue,"path":"$path","value":$value}"""
+    }
     override fun transform(operations: List<Operation>): List<Operation> {
-        val filteredOperations = operations.filter {
-            it !is ReplaceOperation || it.path.intersects(path) && it.value != value
-        }.filter {
-            it !is RemoveOperation || it.path.intersects(path) && it.value == value
-        }
-        return removeOperations(filteredOperations, false, false)
+        return operations
     }
 
     override fun updatePath(updatedPath: JsonPath): Operation {
-        return ReplaceOperation(updatedPath, value)
+        return ReplaceOperation(updatedPath, value, fromValue)
+    }
+
+    override fun reverse(): Operation {
+        return ReplaceOperation(path, fromValue, value)
     }
 }

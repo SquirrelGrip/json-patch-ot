@@ -67,7 +67,7 @@ public final class JsonDiff {
                 // Introduce copy operation
                 diff.introduceCopyOperation(source, target);
 
-            if (flags.contains(DiffFlags.ADD_EXPLICIT_REMOVE_ADD_ON_REPLACE))
+            if (flags.contains(DiffFlags.ADD_EXPLICIT_REMOVE_ADD_ON_REPLACE) || flags.contains(DiffFlags.ADD_EXPLICIT_REMOVE_ADD_ON_REPLACE_FOR_ARRAY_ELEMENTS))
                 // Split replace into remove and add instructions
                 diff.introduceExplicitRemoveAndAddOperation();
         }
@@ -231,15 +231,23 @@ public final class JsonDiff {
      * Does nothing if {@link Operation#REPLACE} op does not contain a from value
      */
     private void introduceExplicitRemoveAndAddOperation() {
-        List<Diff> updatedDiffs = new ArrayList<Diff>();
+        List<Diff> updatedDiffs = new ArrayList<>();
         for (Diff diff : diffs) {
             if (!diff.getOperation().equals(Operation.REPLACE) || diff.getSrcValue() == null) {
                 updatedDiffs.add(diff);
-                continue;
+            } else {
+                boolean shouldSplit = flags.contains(DiffFlags.ADD_EXPLICIT_REMOVE_ADD_ON_REPLACE);
+                if (flags.contains(DiffFlags.ADD_EXPLICIT_REMOVE_ADD_ON_REPLACE_FOR_ARRAY_ELEMENTS) && diff.getPath().last().isArrayIndex()) {
+                    shouldSplit = true;
+                }
+                if (shouldSplit) {
+                    //Split into two #REMOVE and #ADD
+                    updatedDiffs.add(new Diff(Operation.REMOVE, diff.getPath(), diff.getSrcValue()));
+                    updatedDiffs.add(new Diff(Operation.ADD, diff.getPath(), diff.getValue()));
+                } else {
+                    updatedDiffs.add(diff);
+                }
             }
-            //Split into two #REMOVE and #ADD
-            updatedDiffs.add(new Diff(Operation.REMOVE, diff.getPath(), diff.getSrcValue()));
-            updatedDiffs.add(new Diff(Operation.ADD, diff.getPath(), diff.getValue()));
         }
         diffs.clear();
         diffs.addAll(updatedDiffs);

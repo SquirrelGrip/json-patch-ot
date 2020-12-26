@@ -11,27 +11,28 @@ import com.squirrelgrip.jsonpatchot.model.ValueOperation
 class AddOperation(
     path: JsonPath,
     value: JsonNode
-): ValueOperation(path, value) {
-    constructor(path: String, value: Any): this(JsonPath(path), value.toJson().toJsonNode())
-    constructor(path: String, value: JsonNode): this(JsonPath(path), value)
+) : ValueOperation(path, value) {
+    constructor(path: String, value: Any) : this(JsonPath(path), value.toJson().toJsonNode())
+    constructor(path: String, value: JsonNode) : this(JsonPath(path), value)
 
     override val operation: OperationType = OperationType.ADD
 
     override fun transform(operations: List<Operation>): List<Operation> {
-        val filteredOperations = operations.filter {
-            it !is AddOperation || it.path.intersects(path) && it.value != value
-        }.map {
-            if (it is AddOperation && it.path.intersects(path) && it.value != value && !it.path.isArrayElement) {
-                ReplaceOperation(it.path, it.value)
+        return operations.map {
+            if (it is AddOperation && it.isScalarOperation()) {
+                ReplaceOperation(it.path, it.value, value)
             } else {
                 it
             }
         }
-        return removeOperations(shiftIndices(filteredOperations, true), false, false);
     }
 
     override fun updatePath(updatedPath: JsonPath): Operation {
         return AddOperation(updatedPath, value)
+    }
+
+    override fun reverse(): Operation {
+        return RemoveOperation(path, value)
     }
 
 }

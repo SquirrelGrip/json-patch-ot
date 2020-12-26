@@ -22,20 +22,21 @@ class RemoveOperation(
     }
 
     override fun transform(operations: List<Operation>): List<Operation> {
-        val filteredOperations = operations.filter {
-            it !is RemoveOperation || !it.path.intersects(path) || !it.path.isArrayElement
-        }.map {
-            if (it is ReplaceOperation && it.path.intersects(path)) {
+        return operations.map {
+            if (it is ReplaceOperation && it.path == path) {
                 AddOperation(it.path, it.value)
             } else {
                 it
             }
         }
-        return shiftIndices(removeOperations(filteredOperations, true, true), false)
     }
 
     override fun updatePath(updatedPath: JsonPath): Operation {
         return RemoveOperation(updatedPath, value)
+    }
+
+    override fun reverse(): Operation {
+        return AddOperation(path, value)
     }
 
 }

@@ -17,4 +17,8 @@ class MoveOperation(
     override fun updatePath(updatedPath: JsonPath): Operation {
         return MoveOperation(updatedPath, from)
     }
+
+    override fun reverse(): Operation {
+        return MoveOperation(from, path)
+    }
 }

@@ -1,7 +1,9 @@
 package com.squirrelgrip.jsonpatchot.model
 
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.ArrayNode
 import com.squirrelgrip.jsonpatchot.model.operation.*
+import org.slf4j.LoggerFactory
 
 abstract class Operation(
     val path: JsonPath
@@ -9,20 +11,24 @@ abstract class Operation(
     constructor(path: String) : this(JsonPath(path))
 
     companion object {
+        val LOGGER = LoggerFactory.getLogger(Operation::class.java)
+
         fun create(jsonNode: JsonNode): Operation {
             val path = jsonNode["path"].asText()
             val value = jsonNode["value"] ?: ""
+            val fromValue = jsonNode["fromValue"] ?: ""
             val from = jsonNode["from"]?.asText() ?: ""
             return when (jsonNode["op"].asText()) {
                 "add" -> AddOperation(path, value)
                 "test" -> TestOperation(path, value)
                 "remove" -> RemoveOperation(path, value)
-                "replace" -> ReplaceOperation(path, value)
+                "replace" -> ReplaceOperation(path, value, fromValue)
                 "move" -> MoveOperation(path, from)
                 "copy" -> CopyOperation(path, from)
-                else -> throw InvalidOperationException()
+                else -> throw InvalidOperationException("TestOperation cannot be reverese")
             }
         }
+
     }
 
     abstract val operation: OperationType
@@ -48,13 +54,19 @@ abstract class Operation(
 
     abstract fun updatePath(updatedPath: JsonPath): Operation
 
+    open fun isArrayOperation(): Boolean {
+        return path.isArrayElement
+    }
+    fun isScalarOperation(): Boolean {
+        return !isArrayOperation()
+    }
+
     fun shiftIndices(
         proposedOperations: List<Operation>,
         isAdd: Boolean = false
     ): List<Operation> {
         return if (path.isArrayElement) {
             proposedOperations.map {
-                // TODO Deal with `from` in FromOperation
                 if (it.path.hasSameArrayPath(path)) {
                     it.updatePath(it.path.replacePathIndices(path, isAdd))
                 } else {
@@ -84,8 +96,9 @@ abstract class Operation(
 
     fun isWhitelisted(acceptedOp: Operation, proposedOp: Operation): Boolean {
         return (proposedOp is AddOperation || proposedOp is TestOperation) && path.intersects(proposedOp.path)
-    };
+    }
 
+    abstract fun reverse(): Operation
 
 }
 
@@ -111,6 +124,7 @@ abstract class FromOperation(
         result = 31 * result + from.hashCode()
         return result
     }
+
 }
 
 abstract class ValueOperation(
@@ -133,4 +147,10 @@ abstract class ValueOperation(
         result = 31 * result + value.hashCode()
         return result
     }
+
+    override fun isArrayOperation(): Boolean {
+        return super.isArrayOperation() || value.isArray
+    }
 }
+
+fun JsonNode.values() = if (this.isEmpty || this.at("/a").isMissingNode) emptySet() else (this["a"] as ArrayNode).map { it.asInt() }.toSortedSet()

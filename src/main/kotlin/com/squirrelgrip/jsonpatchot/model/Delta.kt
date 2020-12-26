@@ -43,8 +43,7 @@ class Delta(
         val appliedOperations = getAppliedOperations(document).apply {
             LOGGER.debug("appliedOperations: $this")
         }
-        val originalDocument = document.getOriginalSource(this)
-        var transformedOperations = operations.prepare(originalDocument, appliedOperations)
+        var transformedOperations = operations.prepare(document.source)
         appliedOperations.forEach {
             transformedOperations = it.transform(transformedOperations)
         }
@@ -52,12 +51,11 @@ class Delta(
     }
 
     fun getAppliedOperations(document: Document): List<Operation> {
-        val appliedOperations = document.appliedDeltas.filter {
+        return document.appliedDeltas.filter {
             it.version >= version
         }.flatMap {
             it.operations
         }
-        return appliedOperations
     }
 
     fun toJsonNode(): JsonNode {
@@ -73,18 +71,9 @@ class Delta(
 
 }
 
-fun List<Operation>.prepare(source: JsonNode, appliedOperations: List<Operation>): List<Operation> {
+fun List<Operation>.prepare(source: JsonNode): List<Operation> {
     val candidatePartition = this.partition {
         it.isArrayOperation()
-    }
-    val appliedOperationsGroupedByPath = appliedOperations.filter {
-        it.isArrayOperation()
-    }.groupBy {
-        if (it.path.isArrayElement) {
-            it.path.parent!!
-        } else {
-            it.path
-        }
     }
     val arrayOperations = candidatePartition.first.groupBy {
         if (it.path.isArrayElement) {
@@ -99,60 +88,33 @@ fun List<Operation>.prepare(source: JsonNode, appliedOperations: List<Operation>
         } else {
             (original as ArrayNode).map { it.asInt() }.toSet()
         }
-        val appliedOperationsForPath = appliedOperationsGroupedByPath.getOrDefault(it.key, emptyList())
         println("groupPath:${it.key.path}")
         println("groupOriginal:$originalSet")
-        println("groupAppliedOperations:${appliedOperationsForPath}")
-        val removeValues1 = mutableListOf<Any>()
-        val addValues1 = mutableListOf<Any>()
-        appliedOperationsForPath.forEach { operation ->
-            when (operation) {
-                is AddOperation -> {
-                    val values = operation.values()
-                    addValues1.addAll(values)
-                    removeValues1.removeAll(values)
-                }
-                is RemoveOperation -> {
-                    val values = operation.values()
-                    addValues1.removeAll(values)
-                    removeValues1.addAll(values)
-                }
-                is ReplaceOperation -> {
-                    val values = operation.values()
-                    val fromValues = operation.fromValues()
-                    addValues1.addAll(values - fromValues)
-                    removeValues1.addAll(fromValues - values)
-                }
-            }
-        }
-        println("removeValues1:$removeValues1")
-        println("addValues1:$addValues1")
         println("groupOperations:${it.value}")
-        val removeValues2 = mutableListOf<Any>()
-        val addValues2 = mutableListOf<Any>()
+        val removeValues = mutableListOf<Any>()
+        val addValues = mutableListOf<Any>()
         it.value.forEach { operation ->
             when (operation) {
                 is AddOperation -> {
                     val values = operation.values()
-                    addValues2.addAll(values)
+                    addValues.addAll(values)
                 }
                 is RemoveOperation -> {
                     val values = operation.values()
-                    removeValues2.addAll(values)
+                    removeValues.addAll(values)
                 }
                 is ReplaceOperation -> {
                     val values = operation.values()
                     val fromValues = operation.fromValues()
-                    addValues2.addAll(values - fromValues)
-                    removeValues2.addAll(fromValues - values)
+                    addValues.addAll(values - fromValues)
+                    removeValues.addAll(fromValues - values)
                 }
             }
         }
-        println("removeValues2:$removeValues2")
-        println("addValues2:$addValues2")
-        val intersect1 = addValues1.intersect(removeValues1)
-        val intersect2 = addValues2.intersect(removeValues2)
-        val final = originalSet + (addValues1 - intersect1) + (addValues2 - intersect2) - (removeValues1 - intersect1) - (removeValues2 - intersect2)
+        println("groupRemoveValues:$removeValues")
+        println("groupAddValues:$addValues")
+        val intersect = addValues.intersect(removeValues)
+        val final = originalSet + (addValues - intersect) - (removeValues - intersect)
         println("final:$final")
         if (original.isMissingNode) {
             AddOperation(it.key.path, final)

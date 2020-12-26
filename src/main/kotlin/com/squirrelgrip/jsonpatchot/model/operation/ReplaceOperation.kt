@@ -21,9 +21,6 @@ class ReplaceOperation(
     override fun toString(): String {
         return """{"op":"${operation.value}","fromValue":$fromValue,"path":"$path","value":$value}"""
     }
-    override fun transform(operations: List<Operation>): List<Operation> {
-        return operations
-    }
 
     override fun updatePath(updatedPath: JsonPath): Operation {
         return ReplaceOperation(updatedPath, value, fromValue)

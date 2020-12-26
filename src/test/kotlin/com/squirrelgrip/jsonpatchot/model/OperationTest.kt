@@ -161,19 +161,19 @@ class OperationTest {
                 println("addedASet:$addedASet")
                 println("removedBSet:$removedBSet")
                 println("addedBSet:$addedBSet")
-                val final = (originalSet + addedASet + addedBSet - removedASet - removedBSet).toSortedSet()
+                val final = (originalSet + addedASet + addedBSet - removedASet - removedBSet).toSet()
                 println("final:$final")
 
-                assertThat(appliedDocumentAB.source.values()).containsExactlyElementsOf(final)
-                assertThat(appliedDocumentBA.source.values()).containsExactlyElementsOf(final)
+                assertThat(appliedDocumentAB.source.values()).containsExactlyInAnyOrderElementsOf(final)
+                assertThat(appliedDocumentBA.source.values()).containsExactlyInAnyOrderElementsOf(final)
             },
             { if (it.isEmpty) """{"a":[]}""".toJsonNode() else it }
         )
     }
 
     fun JsonNode.values() =
-        if (this.isEmpty || this.at("/a").isMissingNode) emptySet() else (this["a"] as ArrayNode).map { it.asInt() }
-            .toSortedSet()
+        if (this.isEmpty || this.at("/a").isMissingNode) emptySet() else (this["a"] as ArrayNode)
+            .toSet()
 
     private fun verifyOperations(
         original: JsonNode,

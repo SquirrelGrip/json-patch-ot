@@ -86,7 +86,7 @@ fun List<Operation>.prepare(source: JsonNode): List<Operation> {
         val originalSet = if (original.isEmpty || !original.isArray) {
             mutableSetOf()
         } else {
-            (original as ArrayNode).map { it.asInt() }.toSet()
+            (original as ArrayNode).toSet()
         }
         println("groupPath:${it.key.path}")
         println("groupOriginal:$originalSet")
@@ -114,6 +114,7 @@ fun List<Operation>.prepare(source: JsonNode): List<Operation> {
         println("groupRemoveValues:$removeValues")
         println("groupAddValues:$addValues")
         val intersect = addValues.intersect(removeValues)
+        println("groupIntersect:$intersect")
         val final = originalSet + (addValues - intersect) - (removeValues - intersect)
         println("final:$final")
         if (original.isMissingNode) {
@@ -129,16 +130,16 @@ fun List<Operation>.prepare(source: JsonNode): List<Operation> {
 
 fun ValueOperation.values(): List<Any> {
     return if (value.isArray) {
-        (value as ArrayNode).map { it.asInt() }
+        (value as ArrayNode).toList()
     } else {
-        listOf(value.asInt())
+        listOf(value)
     }
 }
 
 fun ReplaceOperation.fromValues(): List<Any> {
     return if (fromValue.isArray) {
-        (fromValue as ArrayNode).map { it.asInt() }
+        (fromValue as ArrayNode).toList()
     } else {
-        listOf(fromValue.asInt())
+        listOf(fromValue)
     }
 }

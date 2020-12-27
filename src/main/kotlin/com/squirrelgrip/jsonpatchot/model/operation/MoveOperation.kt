@@ -1,24 +1,13 @@
 package com.squirrelgrip.jsonpatchot.model.operation
 
-import com.fasterxml.jackson.databind.JsonNode
-import com.github.squirrelgrip.extension.json.toJson
-import com.github.squirrelgrip.extension.json.toJsonNode
+import com.fasterxml.jackson.core.JsonPointer
 import com.squirrelgrip.jsonpatchot.model.FromOperation
-import com.squirrelgrip.jsonpatchot.model.JsonPath
-import com.squirrelgrip.jsonpatchot.model.Operation
 import com.squirrelgrip.jsonpatchot.model.OperationType
 
 class MoveOperation(
-    path: JsonPath,
-    from: JsonPath
+    path: JsonPointer,
+    from: JsonPointer
 ): FromOperation(path, from) {
-    constructor(path: String, from: String): this(JsonPath(path), JsonPath(from))
+    constructor(path: String, from: String): this(JsonPointer.compile(path), JsonPointer.compile(from))
     override val operation: OperationType = OperationType.MOVE
-    override fun updatePath(updatedPath: JsonPath): Operation {
-        return MoveOperation(updatedPath, from)
-    }
-
-    override fun reverse(): Operation {
-        return MoveOperation(from, path)
-    }
 }

@@ -1,5 +1,6 @@
 package com.squirrelgrip.jsonpatchot.model
 
+import com.fasterxml.jackson.core.JsonPointer
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
@@ -100,17 +101,6 @@ class OperationTest {
                 "world"
             ).toString()
         ).isEqualTo("""{"op":"test","path":"/hello","value":"world"}""")
-    }
-
-    @Test
-    fun `build paths using AddOperation`() {
-        assertThat(pathsUpTo(JsonPath("/a"))).isEmpty()
-        assertThat(pathsUpTo(JsonPath("/a/0"))).containsExactly(AddOperation("/a", "[]".toJsonNode()))
-        assertThat(pathsUpTo(JsonPath("/a/0/a/0"))).containsExactly(
-            AddOperation("/a", "[]".toJsonNode()),
-            AddOperation("/a/0", "{}".toJsonNode()),
-            AddOperation("/a/0/a", "[]".toJsonNode())
-        )
     }
 
     @ParameterizedTest

@@ -45,18 +45,6 @@ class Document(
         return source.toString()
     }
 
-    fun getOriginalSource(delta: Delta): JsonNode {
-        val appliedOperations = delta.getAppliedOperations(this)
-        if (appliedOperations.isEmpty()) {
-            return this.source
-        }
-        val reversedAppliedOperations = appliedOperations.map {
-            it.reverse()
-        }.reversed()
-        val jsonPatch = reversedAppliedOperations.map { it.toString() }.joinToString(",", "[", "]").toJsonNode()
-        return JsonPatch.apply(jsonPatch, source)
-    }
-
 }
 
 fun JsonNode.convert(): List<Operation> =

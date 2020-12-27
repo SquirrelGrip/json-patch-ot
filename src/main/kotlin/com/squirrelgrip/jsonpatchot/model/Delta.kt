@@ -1,5 +1,6 @@
 package com.squirrelgrip.jsonpatchot.model
 
+import com.fasterxml.jackson.core.JsonPointer
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.github.squirrelgrip.extension.json.toJsonNode
@@ -14,6 +15,35 @@ class Delta(
 ) {
     companion object {
         val LOGGER = LoggerFactory.getLogger(Delta::class.java)
+
+        fun getFillerOperations(
+            candidateOperations: List<Operation>,
+            document: Document
+        ): List<Operation> {
+            return candidateOperations.map {
+                it.path
+            }.filter {
+                it.head() != JsonPointer.empty() && document.source.at(it.head()).isMissingNode
+            }.distinct().flatMap {
+                getFillerOperations(it, document.source)
+            }
+        }
+
+        fun getFillerOperations(
+            path: JsonPointer,
+            source: JsonNode
+        ): List<Operation> {
+            val head = path.head()
+            if (head != JsonPointer.empty() && source.at(head).isMissingNode) {
+                val fillerOperation = if (path.last().mayMatchElement()) {
+                    AddOperation(head, "[]".toJsonNode())
+                } else {
+                    AddOperation(head, "{}".toJsonNode())
+                }
+                return listOf(*getFillerOperations(head, source).toTypedArray(), fillerOperation)
+            }
+            return emptyList()
+        }
     }
 
     fun transform(document: Document): Delta {
@@ -24,19 +54,6 @@ class Delta(
         }
         val fillerOperations = getFillerOperations(transformedOperations, document)
         return Delta(document.version, listOf(fillerOperations, transformedOperations).flatten())
-    }
-
-    private fun getFillerOperations(
-        candidateOperations: List<Operation>,
-        document: Document
-    ): List<Operation> {
-        return candidateOperations.map {
-            it.path
-        }.filter {
-            it.parent != null && document.source.at(it.parent!!.path).isMissingNode
-        }.distinct().flatMap {
-            pathsUpTo(it)
-        }
     }
 
     private fun getTransformedOperations(document: Document): List<Operation> {
@@ -76,19 +93,19 @@ fun List<Operation>.prepare(source: JsonNode): List<Operation> {
         it.isArrayOperation()
     }
     val arrayOperations = candidatePartition.first.groupBy {
-        if (it.path.isArrayElement) {
-            it.path.parent!!
+        if (it.path.last().mayMatchElement()) {
+            it.path.head()
         } else {
             it.path
         }
     }.map {
-        val original = source.at(it.key.path)
+        val original = source.at(it.key)
         val originalSet = if (original.isEmpty || !original.isArray) {
             mutableSetOf()
         } else {
             (original as ArrayNode).toSet()
         }
-        println("groupPath:${it.key.path}")
+        println("groupPath:${it.key}")
         println("groupOriginal:$originalSet")
         println("groupOperations:${it.value}")
         val removeValues = mutableListOf<Any>()
@@ -113,14 +130,14 @@ fun List<Operation>.prepare(source: JsonNode): List<Operation> {
         }
         println("groupRemoveValues:$removeValues")
         println("groupAddValues:$addValues")
-        val intersect = addValues.intersect(removeValues)
-        println("groupIntersect:$intersect")
-        val final = originalSet + (addValues - intersect) - (removeValues - intersect)
+        val intersectValues = addValues.intersect(removeValues)
+        println("groupIntersectValues:$intersectValues")
+        val final = originalSet + (addValues - intersectValues) - (removeValues - intersectValues)
         println("final:$final")
         if (original.isMissingNode) {
-            AddOperation(it.key.path, final)
+            AddOperation(it.key.toString(), final)
         } else {
-            ReplaceOperation(it.key.path, final, originalSet)
+            ReplaceOperation(it.key.toString(), final, originalSet)
         }.apply {
             println(this)
         }

@@ -21,6 +21,8 @@ class Document(
         val DIFF_FLAGS: EnumSet<DiffFlags> = EnumSet.of(
             DiffFlags.REMOVE_REMAINING_FROM_END,
             DiffFlags.ADD_ORIGINAL_VALUE_ON_REPLACE,
+            DiffFlags.OMIT_MOVE_OPERATION,
+            DiffFlags.OMIT_COPY_OPERATION
         )
     }
 

@@ -19,7 +19,7 @@ class AddOperation(
 
     override fun transform(operations: List<Operation>): List<Operation> {
         return operations.map {
-            if (it is AddOperation && it.isScalarOperation()) {
+            if (it is AddOperation && it.isScalarOperation() && it.path == path) {
                 ReplaceOperation(it.path, it.value, value)
             } else {
                 it

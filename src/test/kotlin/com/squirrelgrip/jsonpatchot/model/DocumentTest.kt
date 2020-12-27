@@ -16,7 +16,7 @@ class DocumentTest {
     companion object {
 
         @JvmStatic
-        fun multipleScalars(): Stream<Arguments> {
+        fun scalars(): Stream<Arguments> {
             return generateArguments(
                 """{}""",
                 """{"a":1}""",
@@ -28,6 +28,17 @@ class DocumentTest {
                 """{"a":1,"b":1}""",
                 """{"a":2,"b":2}""",
                 """{"a":3,"b":3}""",
+            )
+        }
+
+        @JvmStatic
+        fun objects(): Stream<Arguments> {
+            return generateArguments(
+                """{}""",
+                """{"a":{}}""",
+                """{"a":{"b":1}}""",
+                """{"a":{"b":2}}""",
+                """{"a":{"b":3}}""",
             )
         }
 
@@ -64,8 +75,8 @@ class DocumentTest {
     }
 
     @ParameterizedTest
-    @MethodSource("multipleScalars")
-    fun multipleScalars(
+    @MethodSource("scalars")
+    fun scalars(
         original: JsonNode,
         documentA: JsonNode,
         documentB: JsonNode
@@ -75,21 +86,52 @@ class DocumentTest {
             documentA,
             documentB
         ) { documentAB, documentBA ->
-            val originalValueA = original["a"]
-            val originalValueB = original["b"]
-            val documentAvalueA = documentA["a"]
-            val documentAvalueB = documentA["b"]
-            val documentBvalueA = documentB["a"]
-            val documentBvalueB = documentB["b"]
-            val documentABvalueA = documentAB.source["a"]
-            val documentABvalueB = documentAB.source["b"]
-            val documentBAvalueA = documentBA.source["a"]
-            val documentBAvalueB = documentBA.source["b"]
+            val original_ValueA = original["a"]
+            val original_ValueB = original["b"]
+            val documentA_ValueA = documentA["a"]
+            val documentA_ValueB = documentA["b"]
+            val documentB_ValueA = documentB["a"]
+            val documentB_ValueB = documentB["b"]
+            val documentAB_ValueA = documentAB.source["a"]
+            val documentAB_ValueB = documentAB.source["b"]
+            val documentBA_ValueA = documentBA.source["a"]
+            val documentBA_ValueB = documentBA.source["b"]
 
-            verifyScalarValues(originalValueA, documentAvalueA, documentBvalueA, documentABvalueA)
-            verifyScalarValues(originalValueA, documentBvalueA, documentAvalueA, documentBAvalueA)
-            verifyScalarValues(originalValueB, documentAvalueB, documentBvalueB, documentABvalueB)
-            verifyScalarValues(originalValueB, documentBvalueB, documentAvalueB, documentBAvalueB)
+            verifyScalarValues(original_ValueA, documentA_ValueA, documentB_ValueA, documentAB_ValueA)
+            verifyScalarValues(original_ValueA, documentB_ValueA, documentA_ValueA, documentBA_ValueA)
+            verifyScalarValues(original_ValueB, documentA_ValueB, documentB_ValueB, documentAB_ValueB)
+            verifyScalarValues(original_ValueB, documentB_ValueB, documentA_ValueB, documentBA_ValueB)
+        }
+
+    }
+
+    @ParameterizedTest
+    @MethodSource("objects")
+    fun objects(
+        original: JsonNode,
+        documentA: JsonNode,
+        documentB: JsonNode
+    ) {
+        verifyOperations(
+            original,
+            documentA,
+            documentB
+        ) { documentAB, documentBA ->
+            val original_ValueA = original["a"]
+//            val original_ValueB = original["b"]
+            val documentA_ValueA = documentA["a"]
+//            val documentA_ValueB = documentA["b"]
+            val documentB_ValueA = documentB["a"]
+//            val documentB_ValueB = documentB["b"]
+            val documentAB_ValueA = documentAB.source["a"]
+//            val documentAB_ValueB = documentAB.source["b"]
+            val documentBA_ValueA = documentBA.source["a"]
+//            val documentBA_ValueB = documentBA.source["b"]
+
+            verifyScalarValues(original_ValueA, documentA_ValueA, documentB_ValueA, documentAB_ValueA)
+            verifyScalarValues(original_ValueA, documentB_ValueA, documentA_ValueA, documentBA_ValueA)
+//            verifyScalarValues(original_ValueB, documentA_ValueB, documentB_ValueB, documentAB_ValueB)
+//            verifyScalarValues(original_ValueB, documentB_ValueB, documentA_ValueB, documentBA_ValueB)
         }
 
     }

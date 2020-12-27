@@ -36,5 +36,4 @@ class ReplaceOperation(
         return 31 * result + operation.hashCode()
     }
 
-
 }

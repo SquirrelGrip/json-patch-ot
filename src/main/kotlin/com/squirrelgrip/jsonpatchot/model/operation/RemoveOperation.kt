@@ -23,7 +23,7 @@ class RemoveOperation(
 
     override fun transform(operations: List<Operation>): List<Operation> {
         return operations.map {
-            if (it is ReplaceOperation && it.path == path) {
+            if (it is ReplaceOperation && it.path.toString().indexOf(path.toString()) == 0) {
                 AddOperation(it.path, it.value)
             } else {
                 it

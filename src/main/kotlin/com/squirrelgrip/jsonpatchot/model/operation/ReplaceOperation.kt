@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonPointer
 import com.fasterxml.jackson.databind.JsonNode
 import com.github.squirrelgrip.extension.json.toJson
 import com.github.squirrelgrip.extension.json.toJsonNode
+import com.squirrelgrip.jsonpatchot.model.Operation
 import com.squirrelgrip.jsonpatchot.model.OperationType
 import com.squirrelgrip.jsonpatchot.model.ValueOperation
 
@@ -34,6 +35,16 @@ class ReplaceOperation(
         var result = super.hashCode()
         result = 31 * result + fromValue.hashCode()
         return 31 * result + operation.hashCode()
+    }
+
+    override fun transform(operations: List<Operation>): List<Operation> {
+        return operations.map {
+            if (it is ReplaceOperation && it.path.toString().indexOf(path.toString()) == 0) {
+                AddOperation(it.path, it.value)
+            } else {
+                it
+            }
+        }
     }
 
 }

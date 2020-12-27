@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.node.ArrayNode
 import com.flipkart.zjsonpatch.DiffFlags
 import com.flipkart.zjsonpatch.JsonDiff
 import com.flipkart.zjsonpatch.JsonPatch
-import com.github.squirrelgrip.extension.json.toJsonNode
 import org.slf4j.LoggerFactory
 import java.util.*
 
@@ -22,7 +21,8 @@ class Document(
             DiffFlags.REMOVE_REMAINING_FROM_END,
             DiffFlags.ADD_ORIGINAL_VALUE_ON_REPLACE,
             DiffFlags.OMIT_MOVE_OPERATION,
-            DiffFlags.OMIT_COPY_OPERATION
+            DiffFlags.OMIT_COPY_OPERATION,
+            DiffFlags.TREAT_ARRAY_ELEMENTS_AS_OBJECTS
         )
     }
 

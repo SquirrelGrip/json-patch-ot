@@ -43,7 +43,7 @@ class DocumentTest {
         }
 
         @JvmStatic
-        fun arrays(): Stream<Arguments> {
+        fun scalarArrays(): Stream<Arguments> {
             return generateArguments(
                 """{}""",
                 """{"a":[]}""",
@@ -58,6 +58,25 @@ class DocumentTest {
                 """{"a":[5,4,3,2,1]}""",
                 """{"a":[1,2,3,4,5]}""",
                 """{"a":[5,1,4,2,3]}""",
+            )
+        }
+
+        @JvmStatic
+        fun objectArrays(): Stream<Arguments> {
+            return generateArguments(
+                """{}""",
+                """{"a":[]}""",
+                """{"a":[{"b":1}]}""",
+                """{"a":[{"b":2}]}""",
+                """{"a":[{"b":3}]}""",
+                """{"a":[{"b":1},{"b":2}]}""",
+                """{"a":[{"b":1},{"b":3}]}""",
+                """{"a":[{"b":2},{"b":3}]}""",
+                """{"a":[{"b":1},{"b":2},{"b":3}]}""",
+                """{"a":[{"b":3},{"b":2},{"b":1}]}""",
+                """{"a":[{"b":5},{"b":4},{"b":3},{"b":2},{"b":1}]}""",
+                """{"a":[{"b":1},{"b":2},{"b":3},{"b":4},{"b":5}]}""",
+                """{"a":[{"b":5},{"b":1},{"b":4},{"b":2},{"b":3}]}""",
             )
         }
 
@@ -118,52 +137,55 @@ class DocumentTest {
             documentB
         ) { documentAB, documentBA ->
             val original_ValueA = original["a"]
-//            val original_ValueB = original["b"]
             val documentA_ValueA = documentA["a"]
-//            val documentA_ValueB = documentA["b"]
             val documentB_ValueA = documentB["a"]
-//            val documentB_ValueB = documentB["b"]
             val documentAB_ValueA = documentAB.source["a"]
-//            val documentAB_ValueB = documentAB.source["b"]
             val documentBA_ValueA = documentBA.source["a"]
-//            val documentBA_ValueB = documentBA.source["b"]
 
             verifyScalarValues(original_ValueA, documentA_ValueA, documentB_ValueA, documentAB_ValueA)
             verifyScalarValues(original_ValueA, documentB_ValueA, documentA_ValueA, documentBA_ValueA)
-//            verifyScalarValues(original_ValueB, documentA_ValueB, documentB_ValueB, documentAB_ValueB)
-//            verifyScalarValues(original_ValueB, documentB_ValueB, documentA_ValueB, documentBA_ValueB)
         }
 
     }
 
-    private fun verifyScalarValues(
-        originalValue: JsonNode?,
-        valueA: JsonNode?,
-        valueB: JsonNode?,
-        finalValue: JsonNode?
+    @ParameterizedTest
+    @MethodSource("scalarArrays")
+    fun scalarArrays(
+        original: JsonNode,
+        documentA: JsonNode,
+        documentB: JsonNode
     ) {
-        if (originalValue == null) {
-            if (valueB != null) {
-                assertThat(finalValue).isEqualTo(valueB)
-            } else if (valueA != null) {
-                assertThat(finalValue).isEqualTo(valueA)
-            } else {
-                assertThat(finalValue).isNull()
-            }
-        } else {
-            if (valueB != originalValue) {
-                assertThat(finalValue).isEqualTo(valueB)
-            } else if (valueA != originalValue) {
-                assertThat(finalValue).isEqualTo(valueA)
-            } else {
-                assertThat(finalValue).isEqualTo(originalValue)
-            }
+        verifyOperations(
+            original,
+            documentA,
+            documentB
+        ) { appliedDocumentAB, appliedDocumentBA ->
+            val originalSet = original.values()
+            val documentASet = documentA.values()
+            val documentBSet = documentB.values()
+
+            println("originalSet:$originalSet")
+            println("documentASet:$documentASet")
+            println("documentBSet:$documentBSet")
+            val removedASet = originalSet - documentASet
+            val addedASet = documentASet - originalSet
+            val removedBSet = originalSet - documentBSet
+            val addedBSet = documentBSet - originalSet
+            println("removedASet:$removedASet")
+            println("addedASet:$addedASet")
+            println("removedBSet:$removedBSet")
+            println("addedBSet:$addedBSet")
+            val final = (originalSet + addedASet + addedBSet - removedASet - removedBSet).toSet()
+            println("final:$final")
+
+            assertThat(appliedDocumentAB.source.values()).containsExactlyInAnyOrderElementsOf(final)
+            assertThat(appliedDocumentBA.source.values()).containsExactlyInAnyOrderElementsOf(final)
         }
     }
 
     @ParameterizedTest
-    @MethodSource("arrays")
-    fun arrays(
+    @MethodSource("objectArrays")
+    fun objectArrays(
         original: JsonNode,
         documentA: JsonNode,
         documentB: JsonNode
@@ -244,6 +266,31 @@ class DocumentTest {
             assertThat(appliedDocumentAB.source.toString()).isEqualTo(appliedDocumentBA.source.toString())
         }
         verifier(appliedDocumentAB, appliedDocumentBA)
+    }
+
+    private fun verifyScalarValues(
+        originalValue: JsonNode?,
+        valueA: JsonNode?,
+        valueB: JsonNode?,
+        finalValue: JsonNode?
+    ) {
+        if (originalValue == null) {
+            if (valueB != null) {
+                assertThat(finalValue).isEqualTo(valueB)
+            } else if (valueA != null) {
+                assertThat(finalValue).isEqualTo(valueA)
+            } else {
+                assertThat(finalValue).isNull()
+            }
+        } else {
+            if (valueB != originalValue) {
+                assertThat(finalValue).isEqualTo(valueB)
+            } else if (valueA != originalValue) {
+                assertThat(finalValue).isEqualTo(valueA)
+            } else {
+                assertThat(finalValue).isEqualTo(originalValue)
+            }
+        }
     }
 
 }

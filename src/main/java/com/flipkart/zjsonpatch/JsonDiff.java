@@ -22,12 +22,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.collections4.ListUtils;
 
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * User: gopi.vishwakarma
@@ -360,26 +355,21 @@ public final class JsonDiff {
 
     private void generateDiffs(JsonPointer path, JsonNode source, JsonNode target, boolean inArray) {
         if (!source.equals(target)) {
-            if (flags.contains(DiffFlags.TREAT_ARRAY_ELEMENTS_AS_OBJECTS) && inArray) {
+            boolean replaceObject = flags.contains(DiffFlags.TREAT_ARRAY_ELEMENTS_AS_OBJECTS) && inArray;
+            final NodeType sourceType = NodeType.getNodeType(source);
+            final NodeType targetType = NodeType.getNodeType(target);
+
+            if (!replaceObject && sourceType == NodeType.ARRAY && targetType == NodeType.ARRAY) {
+                //both are arrays
+                compareArray(path, source, target);
+            } else if (!replaceObject && sourceType == NodeType.OBJECT && targetType == NodeType.OBJECT) {
+                //both are json
+                compareObjects(path, source, target);
+            } else {
+                //can be replaced
                 if (flags.contains(DiffFlags.EMIT_TEST_OPERATIONS))
                     diffs.add(new Diff(Operation.TEST, path, source));
                 diffs.add(Diff.generateDiff(Operation.REPLACE, path, source, target));
-            } else {
-                final NodeType sourceType = NodeType.getNodeType(source);
-                final NodeType targetType = NodeType.getNodeType(target);
-
-                if (sourceType == NodeType.ARRAY && targetType == NodeType.ARRAY) {
-                    //both are arrays
-                    compareArray(path, source, target);
-                } else if (sourceType == NodeType.OBJECT && targetType == NodeType.OBJECT) {
-                    //both are json
-                    compareObjects(path, source, target);
-                } else {
-                    //can be replaced
-                    if (flags.contains(DiffFlags.EMIT_TEST_OPERATIONS))
-                        diffs.add(new Diff(Operation.TEST, path, source));
-                    diffs.add(Diff.generateDiff(Operation.REPLACE, path, source, target));
-                }
             }
         }
     }
@@ -449,7 +439,7 @@ public final class JsonDiff {
         }
         pos = addRemaining(path, target, pos, targetIdx, targetSize);
         removeRemaining(path, pos, srcIdx, srcSize, source, removes);
-        while(!removes.isEmpty()) {
+        while (!removes.isEmpty()) {
             diffs.add(0, removes.remove(0));
         }
     }
